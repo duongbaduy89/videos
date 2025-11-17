@@ -1,0 +1,62 @@
+/* src/index.css - reset & utils + minimal styles for video feed */
+
+/* RESET */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; width: 100%; background: #000; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* prevent overscroll on mobile */
+body, html { overscroll-behavior: none; }
+
+/* video container helpers */
+.video-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh; /* best on modern browsers for mobile */
+  width: 100%;
+  position: relative;
+  background: black;
+}
+
+/* ensure video is centered and fully visible */
+.video-center video {
+  max-height: 100dvh;
+  max-width: 100%;
+  object-fit: contain; /* keep full video visible, centered */
+  object-position: center center;
+  display: block;
+  background: black;
+}
+
+/* slight translucent button bubble */
+.action-bubble {
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px);
+  border-radius: 9999px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+}
+
+/* small thin seek bar style */
+input[type="range"] {
+  appearance: none;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* small responsive tweaks */
+@media (min-width: 768px) {
+  .action-bubble { width: 56px; height: 56px; }
+}
