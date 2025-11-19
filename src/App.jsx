@@ -4,7 +4,10 @@ import { AuthProvider } from "./context/AuthContext";
 import VideoFeed from "./components/VideoFeed";
 import Login from "./components/Auth/Login";
 import Signup from "./components/Auth/Signup";
-import UploadVideo from "./components/UploadVideo";
+
+// ❗ Trang upload mới từ thư mục /pages
+import Upload from "./pages/Upload";
+
 import { supabase } from "./supabaseClient";
 import { useEffect, useState } from "react";
 
@@ -12,7 +15,6 @@ export default function App() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch video từ Supabase
   useEffect(() => {
     const loadVideos = async () => {
       const { data, error } = await supabase
@@ -27,18 +29,28 @@ export default function App() {
     loadVideos();
   }, []);
 
-  if (loading) return <div style={{ color: "white", padding: 20 }}>Đang tải video...</div>;
+  if (loading)
+    return (
+      <div style={{ color: "white", padding: 20 }}>
+        Đang tải video...
+      </div>
+    );
 
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* TRUYỀN videos vào VideoFeed */}
+
+          {/* Trang Video chính */}
           <Route path="/" element={<VideoFeed videos={videos} />} />
 
+          {/* Login / Signup */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/upload" element={<UploadVideo />} />
+
+          {/* ❗ Trang Upload UI mới */}
+          <Route path="/upload" element={<Upload />} />
+
         </Routes>
       </BrowserRouter>
     </AuthProvider>
