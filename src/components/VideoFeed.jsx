@@ -3,87 +3,80 @@ import { supabase } from "../supabaseClient";
 import TwitterVideoPlayer from "./TwitterVideoPlayer";
 import "./VideoFeed.css";
 
-// =====================================
-//  CHỈ LOAD VIDEO – KHÔNG CÒN UPLOAD Ở ĐÂY
-// =====================================
-
 export default function VideoFeed() {
   const [videos, setVideos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const touchStartY = useRef(0);
-  const touchEndY = useRef(0);
+  // swipe refs
+  const startY = useRef(0);
+  const lastY = useRef(0);
+  const isDragging = useRef(false);
 
-  // ============================
-  // LOAD VIDEO TỪ SUPABASE CHÍNH
-  // ============================
+  // Load video list from Supabase
   useEffect(() => {
-    fetchVideos();
+    const load = async () => {
+      const { data } = await supabase
+        .from("videos")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      setVideos(data || []);
+    };
+    load();
   }, []);
 
-  const fetchVideos = async () => {
-    const { data, error } = await supabase
-      .from("videos")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error) setVideos(data || []);
+  // MOBILE TOUCH
+  const handleTouchStart = (e) => {
+    startY.current = e.touches[0].clientY;
+    lastY.current = startY.current;
+    isDragging.current = true;
   };
 
-  // ============================
-  // SWIPE MOBILE
-  // ============================
-  const onTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
+  const handleTouchMove = (e) => {
+    if (!isDragging.current) return;
+    lastY.current = e.touches[0].clientY;
   };
 
-  const onTouchMove = (e) => {
-    touchEndY.current = e.touches[0].clientY;
-  };
+  const handleTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
 
-  const onTouchEnd = () => {
-    const swipe = touchEndY.current - touchStartY.current;
-    if (swipe > 80) {
-      setCurrentIndex((prev) => Math.max(prev - 1, 0));
-    } else if (swipe < -80) {
-      setCurrentIndex((prev) => Math.min(prev + 1, videos.length - 1));
+    const delta = lastY.current - startY.current;
+
+    // cần vuốt đủ mạnh
+    if (delta > 100) {
+      setCurrentIndex((i) => Math.max(i - 1, 0));
+    } else if (delta < -100) {
+      setCurrentIndex((i) => Math.min(i + 1, videos.length - 1));
     }
   };
 
-  // ============================
-  // SCROLL PC
-  // ============================
-  const onWheel = (e) => {
+  // PC scroll
+  const handleWheel = (e) => {
     if (e.deltaY > 0) {
-      setCurrentIndex((prev) => Math.min(prev + 1, videos.length - 1));
+      setCurrentIndex((i) => Math.min(i + 1, videos.length - 1));
     } else {
-      setCurrentIndex((prev) => Math.max(prev - 1, 0));
+      setCurrentIndex((i) => Math.max(i - 1, 0));
     }
   };
 
   return (
     <div
       className="videofeed-wrapper"
-      onWheel={onWheel}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* TOP NAV */}
       <div className="top-nav">
-        <button className="nav-btn" onClick={() => (window.location.href = "/signup")}>
-          Đăng ký
-        </button>
-
         <button className="nav-btn" onClick={() => (window.location.href = "/login")}>
-          Đăng nhập
+          Login
         </button>
-
-        {/* ⭐ NÚT UPLOAD MỚI → CHUYỂN TRANG */}
-        <button
-          className="upload-btn"
-          onClick={() => (window.location.href = "/upload")}
-        >
+        <button className="nav-btn" onClick={() => (window.location.href = "/signup")}>
+          Signup
+        </button>
+        <button className="upload-btn" onClick={() => (window.location.href = "/upload")}>
           Upload
         </button>
       </div>

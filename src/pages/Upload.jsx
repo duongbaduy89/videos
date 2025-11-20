@@ -1,168 +1,176 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
-import { supabaseClone1, supabaseClone2 } from "../supabaseClones";
+import "./Upload.css";
 
 export default function Upload() {
-  const [videoFile, setVideoFile] = useState(null);
-  const [preview, setPreview] = useState("");
-  const [uploading, setUploading] = useState(false);
-
+  const [file, setFile] = useState(null);
+  const [previewURL, setPreviewURL] = useState("");
   const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
   const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState("");
 
-  const [bucketTarget, setBucketTarget] = useState("clone1");
+  const WORKER_UPLOAD_URL = "https://r2upload.dataphim002.workers.dev/upload";
 
+  // Chọn file + xem preview
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    setVideoFile(file);
-    setPreview(URL.createObjectURL(file));
+    const f = e.target.files[0];
+    setFile(f);
+    setPreviewURL(URL.createObjectURL(f));
   };
 
-  const getSupabaseClient = () => {
-    return bucketTarget === "clone1" ? supabaseClone1 : supabaseClone2;
-  };
+  // Upload video lên Cloudflare Worker
+  const uploadToR2 = async () => {
+    if (!file) return null;
 
-  const handleUpload = async () => {
-    if (!videoFile) {
-      alert("Chọn video trước!");
-      return;
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(WORKER_UPLOAD_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      console.error("R2 error:", data);
+      return null;
     }
-    if (!title.trim()) {
-      alert("Bạn cần nhập tiêu đề!");
+    return data.publicUrl;
+  };
+
+  // Lưu vào Supabase
+  const saveToSupabase = async (url) => {
+    const { error } = await supabase.from("videos").insert([
+      {
+        title,
+        category,
+        description,
+        url,
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Xử lý Upload tổng
+  const handleUpload = async () => {
+    if (!file) {
+      alert("Bạn chưa chọn video!");
       return;
     }
 
     setUploading(true);
-    const client = getSupabaseClient();
+    setStatus("Đang upload...");
 
-    const fileName = `${Date.now()}-${videoFile.name}`;
-
-    // 👉 FIX QUAN TRỌNG: bucket phải là videoss
-    const { error: uploadErr } = await client.storage
-      .from("videoss")
-      .upload(fileName, videoFile, { upsert: true });
-
-    if (uploadErr) {
-      alert("❌ Upload thất bại!");
-      console.error(uploadErr);
+    // Upload video
+    const videoUrl = await uploadToR2();
+    if (!videoUrl) {
+      setStatus("Upload thất bại!");
       setUploading(false);
       return;
     }
 
-    // Lấy URL công khai
-    const { data: publicData } = client.storage
-      .from("videoss")
-      .getPublicUrl(fileName);
-
-    const videoURL = publicData.publicUrl;
-
-    // Insert metadata vào Supabase chính
-    const { error: insertErr } = await supabase.from("videos").insert([
-      {
-        url: videoURL,
-        title: title,
-        description: desc,
-        category: category,
-      },
-    ]);
-
-    if (insertErr) {
-      alert("❌ Lưu metadata thất bại!");
-      console.error(insertErr);
+    // Lưu DB
+    const ok = await saveToSupabase(videoUrl);
+    if (!ok) {
+      setStatus("Lỗi lưu database!");
       setUploading(false);
       return;
     }
 
-    alert("✅ Upload thành công!");
-    setUploading(false);
-    setVideoFile(null);
-    setPreview("");
+    setStatus("Upload thành công!");
+
+    // Reset form
+    setFile(null);
+    setPreviewURL("");
     setTitle("");
-    setDesc("");
     setCategory("");
+    setDescription("");
+
+    // Tự redirect
+    setTimeout(() => {
+      window.location.href = "/videofeed";
+    }, 900);
+
+    setUploading(false);
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex justify-center p-4">
-      <div className="w-full max-w-lg bg-zinc-900 rounded-xl p-6 shadow-lg">
+    <div className="upload-page">
 
-        <h1 className="text-2xl font-bold mb-5 text-center">Upload Video</h1>
+      <div className="upload-card">
 
-        {/* Chọn file */}
-        <div className="mb-5">
-          <label className="font-semibold">Chọn video MP4:</label>
-          <input
-            type="file"
-            accept="video/mp4"
-            onChange={handleFileChange}
-            className="mt-2 w-full text-sm"
-          />
+        <h2>Upload Video</h2>
 
-          {preview && (
-            <video
-              src={preview}
-              controls
-              className="mt-3 rounded-lg w-full max-h-64"
-            />
-          )}
+        <div className="upload-row">
+
+          {/* Preview video bên trái */}
+          <div className="preview-col">
+            <div className="preview-box">
+              {!previewURL && <div className="preview-empty">Preview</div>}
+              {previewURL && (
+                <video className="preview-video" src={previewURL} controls />
+              )}
+            </div>
+          </div>
+
+          {/* Form thông tin bên phải */}
+          <div className="form-col">
+            <div className="field">
+              <span>Chọn video</span>
+              <input type="file" accept="video/*" onChange={handleFileChange} />
+            </div>
+
+            <div className="field">
+              <span>Tiêu đề</span>
+              <input
+                type="text"
+                placeholder="Nhập tiêu đề..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <span>Thể loại</span>
+              <input
+                type="text"
+                placeholder="Funny, Music..."
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <span>Mô tả</span>
+              <textarea
+                rows={4}
+                placeholder="Mô tả video..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              ></textarea>
+            </div>
+
+            {/* Nút upload nhỏ gọn */}
+            <button
+              className="upload-btn small-btn"
+              disabled={uploading}
+              onClick={handleUpload}
+            >
+              {uploading ? "Đang upload..." : "Upload"}
+            </button>
+
+            {status && <p className="status-text">{status}</p>}
+          </div>
+
         </div>
-
-        {/* Chọn Supabase Clone */}
-        <div className="mb-5">
-          <label className="font-semibold">Chọn bucket upload:</label>
-          <select
-            value={bucketTarget}
-            onChange={(e) => setBucketTarget(e.target.value)}
-            className="bg-zinc-800 p-2 rounded-lg mt-2 w-full"
-          >
-            <option value="clone1">Supabase Clone 1</option>
-            <option value="clone2">Supabase Clone 2</option>
-          </select>
-        </div>
-
-        {/* Tiêu đề */}
-        <div className="mb-5">
-          <label className="font-semibold">Tiêu đề video:</label>
-          <input
-            className="w-full bg-zinc-800 p-3 rounded-lg mt-2"
-            placeholder="Nhập tiêu đề video..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-
-        {/* Mô tả */}
-        <div className="mb-5">
-          <label className="font-semibold">Mô tả:</label>
-          <textarea
-            className="w-full bg-zinc-800 p-3 rounded-lg mt-2"
-            rows={3}
-            placeholder="Mô tả nội dung video"
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-          />
-        </div>
-
-        {/* Thể loại */}
-        <div className="mb-6">
-          <label className="font-semibold">Thể loại:</label>
-          <input
-            className="w-full bg-zinc-800 p-3 rounded-lg mt-2"
-            placeholder="funny, anime, vlog..."
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
-        </div>
-
-        {/* Nút upload */}
-        <button
-          onClick={handleUpload}
-          disabled={uploading}
-          className="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg text-lg font-bold"
-        >
-          {uploading ? "Đang upload..." : "Upload Video"}
-        </button>
       </div>
     </div>
   );
