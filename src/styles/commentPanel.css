@@ -1,0 +1,115 @@
+/* Background mờ */
+.comment-overlay {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 9999;
+}
+
+/* Panel trượt lên */
+.comment-panel {
+  width: 100%;
+  max-height: 70%;
+  background: #111;
+  color: white;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Header */
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 17px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+}
+
+/* Danh sách bình luận */
+.comment-list {
+  margin-bottom: 60px;
+}
+
+.comment-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #333;
+}
+
+.comment-user {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.comment-username {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Nội dung comment */
+.comment-content {
+  font-size: 14px;
+  color: #ddd;
+}
+
+/* Ô nhập bình luận */
+.comment-input-row {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  background: #111;
+  border-top: 1px solid #333;
+}
+
+.comment-input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #222;
+  color: white;
+}
+
+.comment-send {
+  padding: 10px 16px;
+  background: #1d9bf0;
+  border: none;
+  color: white;
+  border-radius: 8px;
+}

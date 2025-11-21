@@ -1,15 +1,30 @@
-// src/App.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+
 import VideoFeed from "./components/VideoFeed";
 import Login from "./components/Auth/Login";
 import Signup from "./components/Auth/Signup";
-
-// ❗ Trang upload mới từ thư mục /pages
 import Upload from "./pages/Upload";
+
+import Header from "./components/Header";
 
 import { supabase } from "./supabaseClient";
 import { useEffect, useState } from "react";
+
+function Layout({ children }) {
+  const location = useLocation();
+
+  // Ẩn header ở các trang login/signup
+  const hideHeader =
+    location.pathname === "/login" || location.pathname === "/signup";
+
+  return (
+    <>
+      {!hideHeader && <Header />}
+      {children}
+    </>
+  );
+}
 
 export default function App() {
   const [videos, setVideos] = useState([]);
@@ -39,19 +54,14 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-
-          {/* Trang Video chính */}
-          <Route path="/" element={<VideoFeed videos={videos} />} />
-
-          {/* Login / Signup */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-
-          {/* ❗ Trang Upload UI mới */}
-          <Route path="/upload" element={<Upload />} />
-
-        </Routes>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<VideoFeed videos={videos} />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/upload" element={<Upload />} />
+          </Routes>
+        </Layout>
       </BrowserRouter>
     </AuthProvider>
   );

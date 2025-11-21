@@ -1,120 +1,47 @@
-import React, { useState, useEffect, useRef } from "react";
-import { supabase } from "../supabaseClient";
-import TwitterVideoPlayer from "./TwitterVideoPlayer";
+import React, { useState, useEffect } from "react";
 import CommentPanel from "./CommentPanel";
-import useAuth from "../hooks/useAuth";
+import TwitterVideoPlayer from "./TwitterVideoPlayer";
 import "./VideoFeed.css";
+import { useAuth } from "../context/AuthContext";
 
-export default function VideoFeed() {
+export default function VideoFeed({ videos }) {
   const { user } = useAuth();
-
-  const [videos, setVideos] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [hasInteracted, setHasInteracted] = useState(false);
-
-  // USER PROFILE
-  const [profile, setProfile] = useState(null);
-
-  useEffect(() => {
-    if (!user) return;
-
-    supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => setProfile(data));
-  }, [user]);
-
-  // COMMENT UI
+  const [index, setIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
-  const [commentVideo, setCommentVideo] = useState(null);
+  const [currentVideo, setCurrentVideo] = useState(null);
 
-  // Load videos
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from("videos")
-        .select("*")
-        .order("created_at", { ascending: false });
+    setCurrentVideo(videos[index]);
+  }, [index, videos]);
 
-      setVideos(data || []);
-    };
-    load();
-  }, []);
-
-  // LIKE
-  const handleLike = () => {
-    if (!user) {
-      alert("Bạn cần đăng nhập để like!");
-      window.location.href = "/login";
-      return;
-    }
-    alert("Like (sẽ lưu vào supabase sau)");
-  };
-
-  // OPEN COMMENTS
-  const openComments = () => {
-    if (!user) {
-      alert("Bạn cần đăng nhập để bình luận!");
-      window.location.href = "/login";
-      return;
-    }
-
-    setCommentVideo(videos[currentIndex]);
+  const handleOpenComments = () => {
+    if (!user) return alert("Bạn cần đăng nhập để bình luận!");
     setShowComments(true);
   };
+
+  const handleCloseComments = () => {
+    setShowComments(false);
+  };
+
+  const handleLike = () => {
+    if (!user) return alert("Bạn cần đăng nhập để like!");
+    alert("Đã like video!");
+  };
+
+  if (!currentVideo) return null;
 
   return (
     <div className="videofeed-wrapper">
 
-      {/* TOP NAV */}
-      <div className="top-nav">
-        {!user && (
-          <>
-            <button className="nav-btn" onClick={() => (window.location.href = "/login")}>
-              Login
-            </button>
-            <button className="nav-btn" onClick={() => (window.location.href = "/signup")}>
-              Signup
-            </button>
-          </>
-        )}
+      <TwitterVideoPlayer
+        videoUrl={currentVideo.url}
+        autoPlayEnabled={true}
+        onOpenComments={handleOpenComments}
+        onLike={handleLike}
+      />
 
-        {user && (
-          <>
-            <div className="nav-username">👤 {profile?.username}</div>
-            <button className="nav-btn" onClick={() => supabase.auth.signOut()}>
-              Logout
-            </button>
-          </>
-        )}
-
-        <button className="upload-btn" onClick={() => (window.location.href = "/upload")}>
-          Upload
-        </button>
-      </div>
-
-      {/* VIDEO PLAYER */}
-      {videos.length > 0 ? (
-        <TwitterVideoPlayer
-          key={videos[currentIndex].id}
-          videoUrl={videos[currentIndex].url}
-          autoPlayEnabled={currentIndex > 0}
-          onUserPlay={() => setHasInteracted(true)}
-          onOpenComments={openComments}
-          onLike={handleLike}
-        />
-      ) : (
-        <div className="loading-text">Đang tải video...</div>
-      )}
-
-      {/* COMMENT PANEL */}
       {showComments && (
-        <CommentPanel
-          video={commentVideo}
-          onClose={() => setShowComments(false)}
-        />
+        <CommentPanel video={currentVideo} onClose={handleCloseComments} />
       )}
     </div>
   );

@@ -24,7 +24,6 @@ export default function TwitterVideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // AUTOPLAY unlock
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -36,7 +35,6 @@ export default function TwitterVideoPlayer({
     }
   }, [autoPlayEnabled, videoUrl]);
 
-  // TIME UPDATE
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -55,7 +53,6 @@ export default function TwitterVideoPlayer({
     };
   }, []);
 
-  // PLAY
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -63,9 +60,7 @@ export default function TwitterVideoPlayer({
     if (v.paused) {
       v.play();
       setPlaying(true);
-
       if (onUserPlay) onUserPlay();
-
       v.muted = false;
       setMuted(false);
     } else {
@@ -74,7 +69,6 @@ export default function TwitterVideoPlayer({
     }
   };
 
-  // MUTE
   const toggleMute = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -83,14 +77,11 @@ export default function TwitterVideoPlayer({
     setMuted(!muted);
   };
 
-  // SEEK
   const seek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = (e.clientX - rect.left) / rect.width;
-
     const v = videoRef.current;
     if (!v) return;
-
     v.currentTime = pct * v.duration;
   };
 
@@ -116,17 +107,11 @@ export default function TwitterVideoPlayer({
         className="twitter-video"
       />
 
-      {/* RIGHT CONTROLS */}
-      <div
-        className="twitter-right-controls"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* COMMENT BUTTON */}
+      <div className="twitter-right-controls" onClick={(e) => e.stopPropagation()}>
         <button className="t-btn" onClick={() => onOpenComments?.()}>
           <FiMessageCircle size={22} />
         </button>
 
-        {/* LIKE BUTTON */}
         <button className="t-btn" onClick={() => onLike?.()}>
           <AiOutlineHeart size={22} />
         </button>
@@ -139,15 +124,11 @@ export default function TwitterVideoPlayer({
           {muted ? <FiVolumeX size={22} /> : <FiVolume2 size={22} />}
         </button>
 
-        <button
-          className="t-btn"
-          onClick={() => videoRef.current?.requestFullscreen()}
-        >
+        <button className="t-btn" onClick={() => videoRef.current?.requestFullscreen()}>
           <IoExpandOutline size={22} />
         </button>
       </div>
 
-      {/* PROGRESS */}
       <div className="twitter-progress-wrap" onClick={seek}>
         <div
           className="twitter-progress-filled"
@@ -158,7 +139,7 @@ export default function TwitterVideoPlayer({
       </div>
 
       {!playing && (
-        <div className="twitter-paused-overlay" onClick={() => togglePlay()}>
+        <div className="twitter-paused-overlay" onClick={togglePlay}>
           ▶
         </div>
       )}
