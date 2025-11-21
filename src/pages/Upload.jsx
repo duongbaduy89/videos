@@ -94,9 +94,9 @@ export default function Upload() {
     setCategory("");
     setDescription("");
 
-    // Tự redirect
+    // Redirect về TRANG CHỦ (/) — FIX LỖI TRỐNG TRANG
     setTimeout(() => {
-      window.location.href = "/videofeed";
+      window.location.href = "/";
     }, 900);
 
     setUploading(false);
@@ -104,14 +104,11 @@ export default function Upload() {
 
   return (
     <div className="upload-page">
-
       <div className="upload-card">
-
         <h2>Upload Video</h2>
 
         <div className="upload-row">
 
-          {/* Preview video bên trái */}
           <div className="preview-col">
             <div className="preview-box">
               {!previewURL && <div className="preview-empty">Preview</div>}
@@ -121,7 +118,6 @@ export default function Upload() {
             </div>
           </div>
 
-          {/* Form thông tin bên phải */}
           <div className="form-col">
             <div className="field">
               <span>Chọn video</span>
@@ -158,7 +154,6 @@ export default function Upload() {
               ></textarea>
             </div>
 
-            {/* Nút upload nhỏ gọn */}
             <button
               className="upload-btn small-btn"
               disabled={uploading}

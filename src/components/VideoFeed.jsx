@@ -6,6 +6,7 @@ import "./VideoFeed.css";
 export default function VideoFeed() {
   const [videos, setVideos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   // swipe refs
   const startY = useRef(0);
@@ -86,6 +87,8 @@ export default function VideoFeed() {
         <TwitterVideoPlayer
           key={videos[currentIndex].id}
           videoUrl={videos[currentIndex].url}
+          autoPlayEnabled={hasInteracted || currentIndex > 0}
+          onUserPlay={() => setHasInteracted(true)}
         />
       ) : (
         <div className="loading-text">Đang tải video...</div>
