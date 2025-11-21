@@ -12,6 +12,20 @@ export default function VideoFeed() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
 
+  // USER PROFILE
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => setProfile(data));
+  }, [user]);
+
   // COMMENT UI
   const [showComments, setShowComments] = useState(false);
   const [commentVideo, setCommentVideo] = useState(null);
@@ -29,55 +43,17 @@ export default function VideoFeed() {
     load();
   }, []);
 
-  // SWIPE
-  const startY = useRef(0);
-  const lastY = useRef(0);
-  const isDragging = useRef(false);
-
-  const handleTouchStart = (e) => {
-    startY.current = e.touches[0].clientY;
-    lastY.current = startY.current;
-    isDragging.current = true;
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging.current) return;
-    lastY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    const delta = lastY.current - startY.current;
-
-    if (delta > 100) {
-      setCurrentIndex((i) => Math.max(i - 1, 0));
-    } else if (delta < -100) {
-      setCurrentIndex((i) => Math.min(i + 1, videos.length - 1));
-    }
-  };
-
-  // PC scroll
-  const handleWheel = (e) => {
-    if (e.deltaY > 0) {
-      setCurrentIndex((i) => Math.min(i + 1, videos.length - 1));
-    } else {
-      setCurrentIndex((i) => Math.max(i - 1, 0));
-    }
-  };
-
-  // HANDLE LIKE (requires login)
+  // LIKE
   const handleLike = () => {
     if (!user) {
       alert("Bạn cần đăng nhập để like!");
       window.location.href = "/login";
       return;
     }
-    alert("Like thành công (sau này sẽ ghi vào Supabase)");
+    alert("Like (sẽ lưu vào supabase sau)");
   };
 
-  // HANDLE COMMENT BUTTON
+  // OPEN COMMENTS
   const openComments = () => {
     if (!user) {
       alert("Bạn cần đăng nhập để bình luận!");
@@ -90,13 +66,8 @@ export default function VideoFeed() {
   };
 
   return (
-    <div
-      className="videofeed-wrapper"
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="videofeed-wrapper">
+
       {/* TOP NAV */}
       <div className="top-nav">
         {!user && (
@@ -111,9 +82,12 @@ export default function VideoFeed() {
         )}
 
         {user && (
-          <button className="nav-btn" onClick={() => supabase.auth.signOut()}>
-            Logout
-          </button>
+          <>
+            <div className="nav-username">👤 {profile?.username}</div>
+            <button className="nav-btn" onClick={() => supabase.auth.signOut()}>
+              Logout
+            </button>
+          </>
         )}
 
         <button className="upload-btn" onClick={() => (window.location.href = "/upload")}>
@@ -126,7 +100,7 @@ export default function VideoFeed() {
         <TwitterVideoPlayer
           key={videos[currentIndex].id}
           videoUrl={videos[currentIndex].url}
-          autoPlayEnabled={hasInteracted || currentIndex > 0}
+          autoPlayEnabled={currentIndex > 0}
           onUserPlay={() => setHasInteracted(true)}
           onOpenComments={openComments}
           onLike={handleLike}

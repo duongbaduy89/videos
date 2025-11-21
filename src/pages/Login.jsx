@@ -5,19 +5,8 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const sendMagicLink = async () => {
-    const { error } = await supabase.auth.signInWithOtp({ email });
-
-    if (error) {
-      alert(error.message);
-    } else {
-      alert("Đã gửi Magic Link! Hãy kiểm tra email.");
-      window.location.href = "/"; // Redirect sau khi gửi link
-    }
-  };
-
   const passwordLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -25,7 +14,7 @@ export default function Login() {
     if (error) {
       alert(error.message);
     } else {
-      window.location.href = "/"; // 🔥 Redirect sau khi đăng nhập thành công
+      window.location.href = "/"; // 🔥 redirect về trang chủ
     }
   };
 
@@ -34,8 +23,7 @@ export default function Login() {
       <h2 style={{ marginBottom: 20 }}>Đăng nhập</h2>
 
       <input
-        className="input"
-        placeholder="Nhập email..."
+        placeholder="Email..."
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         style={{
@@ -47,8 +35,7 @@ export default function Login() {
       />
 
       <input
-        className="input"
-        placeholder="Mật khẩu"
+        placeholder="Mật khẩu..."
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
@@ -61,7 +48,6 @@ export default function Login() {
       />
 
       <button
-        className="btn"
         onClick={passwordLogin}
         style={{
           width: "100%",
@@ -70,25 +56,9 @@ export default function Login() {
           color: "white",
           border: "none",
           borderRadius: 8,
-          marginBottom: 10,
         }}
       >
         Đăng nhập
-      </button>
-
-      <button
-        className="btn2"
-        onClick={sendMagicLink}
-        style={{
-          width: "100%",
-          padding: 12,
-          background: "#444",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-        }}
-      >
-        Gửi Magic Link
       </button>
 
       <p style={{ marginTop: 20 }}>

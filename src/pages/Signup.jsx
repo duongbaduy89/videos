@@ -4,19 +4,45 @@ import { supabase } from "../supabaseClient";
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
 
   const signup = async () => {
-    const { error } = await supabase.auth.signUp({
+    if (!username.trim()) {
+      alert("Vui lòng nhập username");
+      return;
+    }
+
+    // 1) Đăng ký Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
 
     if (error) {
       alert(error.message);
-    } else {
-      alert("Đăng ký thành công!");
-      window.location.href = "/"; // 🔥 Redirect sau khi đăng ký xong
+      return;
     }
+
+    // 2) Lấy userID sau đăng ký
+    const userId = data?.user?.id;
+    if (!userId) {
+      alert("Không lấy được user ID");
+      return;
+    }
+
+    // 3) Update bảng profiles
+    const { error: profileErr } = await supabase
+      .from("profiles")
+      .update({ username })
+      .eq("id", userId);
+
+    if (profileErr) {
+      alert("Lỗi update profile: " + profileErr.message);
+      return;
+    }
+
+    alert("Đăng ký thành công! Hãy đăng nhập.");
+    window.location.href = "/login";
   };
 
   return (
@@ -24,7 +50,18 @@ export default function Signup() {
       <h2 style={{ marginBottom: 20 }}>Tạo tài khoản</h2>
 
       <input
-        className="input"
+        placeholder="Username..."
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 10,
+          marginBottom: 10,
+          borderRadius: 8,
+        }}
+      />
+
+      <input
         placeholder="Nhập email..."
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -37,8 +74,7 @@ export default function Signup() {
       />
 
       <input
-        className="input"
-        placeholder="Mật khẩu"
+        placeholder="Mật khẩu..."
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
@@ -51,7 +87,6 @@ export default function Signup() {
       />
 
       <button
-        className="btn"
         onClick={signup}
         style={{
           width: "100%",
