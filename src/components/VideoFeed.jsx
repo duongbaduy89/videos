@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import TwitterVideoPlayer from "./TwitterVideoPlayer";
+import CommentPanel from "./CommentPanel";
+import useAuth from "../hooks/useAuth";
 import "./VideoFeed.css";
 
 export default function VideoFeed() {
+  const { user } = useAuth();
+
   const [videos, setVideos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
 
-  // swipe refs
-  const startY = useRef(0);
-  const lastY = useRef(0);
-  const isDragging = useRef(false);
+  // COMMENT UI
+  const [showComments, setShowComments] = useState(false);
+  const [commentVideo, setCommentVideo] = useState(null);
 
-  // Load video list from Supabase
+  // Load videos
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase
@@ -26,7 +29,11 @@ export default function VideoFeed() {
     load();
   }, []);
 
-  // MOBILE TOUCH
+  // SWIPE
+  const startY = useRef(0);
+  const lastY = useRef(0);
+  const isDragging = useRef(false);
+
   const handleTouchStart = (e) => {
     startY.current = e.touches[0].clientY;
     lastY.current = startY.current;
@@ -44,7 +51,6 @@ export default function VideoFeed() {
 
     const delta = lastY.current - startY.current;
 
-    // cần vuốt đủ mạnh
     if (delta > 100) {
       setCurrentIndex((i) => Math.max(i - 1, 0));
     } else if (delta < -100) {
@@ -61,6 +67,28 @@ export default function VideoFeed() {
     }
   };
 
+  // HANDLE LIKE (requires login)
+  const handleLike = () => {
+    if (!user) {
+      alert("Bạn cần đăng nhập để like!");
+      window.location.href = "/login";
+      return;
+    }
+    alert("Like thành công (sau này sẽ ghi vào Supabase)");
+  };
+
+  // HANDLE COMMENT BUTTON
+  const openComments = () => {
+    if (!user) {
+      alert("Bạn cần đăng nhập để bình luận!");
+      window.location.href = "/login";
+      return;
+    }
+
+    setCommentVideo(videos[currentIndex]);
+    setShowComments(true);
+  };
+
   return (
     <div
       className="videofeed-wrapper"
@@ -71,12 +99,23 @@ export default function VideoFeed() {
     >
       {/* TOP NAV */}
       <div className="top-nav">
-        <button className="nav-btn" onClick={() => (window.location.href = "/login")}>
-          Login
-        </button>
-        <button className="nav-btn" onClick={() => (window.location.href = "/signup")}>
-          Signup
-        </button>
+        {!user && (
+          <>
+            <button className="nav-btn" onClick={() => (window.location.href = "/login")}>
+              Login
+            </button>
+            <button className="nav-btn" onClick={() => (window.location.href = "/signup")}>
+              Signup
+            </button>
+          </>
+        )}
+
+        {user && (
+          <button className="nav-btn" onClick={() => supabase.auth.signOut()}>
+            Logout
+          </button>
+        )}
+
         <button className="upload-btn" onClick={() => (window.location.href = "/upload")}>
           Upload
         </button>
@@ -89,9 +128,19 @@ export default function VideoFeed() {
           videoUrl={videos[currentIndex].url}
           autoPlayEnabled={hasInteracted || currentIndex > 0}
           onUserPlay={() => setHasInteracted(true)}
+          onOpenComments={openComments}
+          onLike={handleLike}
         />
       ) : (
         <div className="loading-text">Đang tải video...</div>
+      )}
+
+      {/* COMMENT PANEL */}
+      {showComments && (
+        <CommentPanel
+          video={commentVideo}
+          onClose={() => setShowComments(false)}
+        />
       )}
     </div>
   );

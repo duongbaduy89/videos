@@ -1,71 +1,76 @@
-import { useState } from "react";
-import { supabase } from "../../supabaseClient";
+import React, { useState } from "react";
+import { supabase } from "../supabaseClient";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    // 1️⃣ ĐĂNG KÝ USER
-    const { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
+  const signup = async () => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
     });
 
-    // ⭐ 2️⃣ THÊM DÒNG LOG NÀY NGAY TẠI ĐÂY ⭐
-    console.log("Signup result → ", data, error);
-
-    // 3️⃣ NẾU SIGNUP LỖI → DỪNG TẠI ĐÂY
     if (error) {
-      alert("Signup error: " + error.message);
-      setLoading(false);
-      return;
-    }
-
-    // 4️⃣ NẾU SIGNUP KHÔNG TRẢ VỀ user → lỗi supabase config
-    if (!data.user) {
-      alert("Signup failed — data.user is null");
-      setLoading(false);
-      return;
-    }
-
-    // 5️⃣ CHÈN PROFILE VÀO BẢNG profiles
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      username: email,
-      role: "user",
-    });
-
-    if (profileError) {
-      alert("Insert profile error: " + profileError.message);
+      alert(error.message);
     } else {
-      alert("Signup successful!");
+      alert("Đăng ký thành công!");
+      window.location.href = "/"; // 🔥 Redirect sau khi đăng ký xong
     }
-
-    setLoading(false);
   };
 
   return (
-    <form onSubmit={handleSignup}>
+    <div className="login-box" style={{ padding: 20 }}>
+      <h2 style={{ marginBottom: 20 }}>Tạo tài khoản</h2>
+
       <input
-        type="email"
-        placeholder="Email"
+        className="input"
+        placeholder="Nhập email..."
+        value={email}
         onChange={(e) => setEmail(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 10,
+          marginBottom: 10,
+          borderRadius: 8,
+        }}
       />
 
       <input
+        className="input"
+        placeholder="Mật khẩu"
         type="password"
-        placeholder="Password"
+        value={password}
         onChange={(e) => setPassword(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 10,
+          marginBottom: 20,
+          borderRadius: 8,
+        }}
       />
 
-      <button disabled={loading}>
-        {loading ? "Loading..." : "Sign up"}
+      <button
+        className="btn"
+        onClick={signup}
+        style={{
+          width: "100%",
+          padding: 12,
+          background: "#0a84ff",
+          color: "white",
+          border: "none",
+          borderRadius: 8,
+        }}
+      >
+        Đăng ký
       </button>
-    </form>
+
+      <p style={{ marginTop: 20 }}>
+        Đã có tài khoản?{" "}
+        <a href="/login" style={{ color: "#0a84ff" }}>
+          Đăng nhập
+        </a>
+      </p>
+    </div>
   );
 }
