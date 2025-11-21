@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";
 import "./Upload.css";
 
 export default function Upload() {
+  const { user } = useAuth(); // ⬅ LẤY USER ĐANG ĐĂNG NHẬP
+
   const [file, setFile] = useState(null);
   const [previewURL, setPreviewURL] = useState("");
   const [title, setTitle] = useState("");
@@ -48,6 +51,7 @@ export default function Upload() {
         category,
         description,
         url,
+        user_id: user.id, // ⬅ LƯU USER ĐĂNG NHẬP
       },
     ]);
 
@@ -61,8 +65,18 @@ export default function Upload() {
 
   // Xử lý Upload tổng
   const handleUpload = async () => {
+    if (!user) {
+      alert("Bạn cần đăng nhập để upload video!");
+      return;
+    }
+
     if (!file) {
       alert("Bạn chưa chọn video!");
+      return;
+    }
+
+    if (!title.trim()) {
+      alert("Hãy nhập tiêu đề!");
       return;
     }
 
@@ -94,10 +108,10 @@ export default function Upload() {
     setCategory("");
     setDescription("");
 
-    // Redirect về TRANG CHỦ (/) — FIX LỖI TRỐNG TRANG
+    // Redirect về trang chủ
     setTimeout(() => {
       window.location.href = "/";
-    }, 900);
+    }, 800);
 
     setUploading(false);
   };
@@ -106,6 +120,12 @@ export default function Upload() {
     <div className="upload-page">
       <div className="upload-card">
         <h2>Upload Video</h2>
+
+        {!user && (
+          <p style={{ color: "red", marginTop: 10 }}>
+            Bạn phải đăng nhập để upload video.
+          </p>
+        )}
 
         <div className="upload-row">
 
@@ -119,6 +139,7 @@ export default function Upload() {
           </div>
 
           <div className="form-col">
+
             <div className="field">
               <span>Chọn video</span>
               <input type="file" accept="video/*" onChange={handleFileChange} />
