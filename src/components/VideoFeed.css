@@ -78,3 +78,49 @@
   text-align: center;
   padding-top: 40vh;
 }
+.video-info-box {
+  position: absolute;
+  bottom: 60px;
+  left: 15px;
+  right: 15px;
+  color: white;
+  font-family: sans-serif;
+  z-index: 50;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.username {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.follow-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: none;
+  color: white;
+  font-size: 13px;
+}
+
+.video-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 5px;
+}
+
+.video-desc {
+  opacity: 0.9;
+  margin-top: 4px;
+}
+
+.video-stats {
+  margin-top: 5px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
