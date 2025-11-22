@@ -1,11 +1,8 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
-import { useAuth } from "../context/AuthContext";
 import "./Upload.css";
 
 export default function Upload() {
-  const { user } = useAuth(); // ⬅ LẤY USER ĐANG ĐĂNG NHẬP
-
   const [file, setFile] = useState(null);
   const [previewURL, setPreviewURL] = useState("");
   const [title, setTitle] = useState("");
@@ -16,14 +13,12 @@ export default function Upload() {
 
   const WORKER_UPLOAD_URL = "https://r2upload.dataphim002.workers.dev/upload";
 
-  // Chọn file + xem preview
   const handleFileChange = (e) => {
     const f = e.target.files[0];
     setFile(f);
     setPreviewURL(URL.createObjectURL(f));
   };
 
-  // Upload video lên Cloudflare Worker
   const uploadToR2 = async () => {
     if (!file) return null;
 
@@ -43,7 +38,6 @@ export default function Upload() {
     return data.publicUrl;
   };
 
-  // Lưu vào Supabase
   const saveToSupabase = async (url) => {
     const { error } = await supabase.from("videos").insert([
       {
@@ -51,7 +45,6 @@ export default function Upload() {
         category,
         description,
         url,
-        user_id: user.id, // ⬅ LƯU USER ĐĂNG NHẬP
       },
     ]);
 
@@ -63,27 +56,15 @@ export default function Upload() {
     return true;
   };
 
-  // Xử lý Upload tổng
   const handleUpload = async () => {
-    if (!user) {
-      alert("Bạn cần đăng nhập để upload video!");
-      return;
-    }
-
     if (!file) {
       alert("Bạn chưa chọn video!");
-      return;
-    }
-
-    if (!title.trim()) {
-      alert("Hãy nhập tiêu đề!");
       return;
     }
 
     setUploading(true);
     setStatus("Đang upload...");
 
-    // Upload video
     const videoUrl = await uploadToR2();
     if (!videoUrl) {
       setStatus("Upload thất bại!");
@@ -91,7 +72,6 @@ export default function Upload() {
       return;
     }
 
-    // Lưu DB
     const ok = await saveToSupabase(videoUrl);
     if (!ok) {
       setStatus("Lỗi lưu database!");
@@ -101,17 +81,9 @@ export default function Upload() {
 
     setStatus("Upload thành công!");
 
-    // Reset form
-    setFile(null);
-    setPreviewURL("");
-    setTitle("");
-    setCategory("");
-    setDescription("");
-
-    // Redirect về trang chủ
     setTimeout(() => {
       window.location.href = "/";
-    }, 800);
+    }, 900);
 
     setUploading(false);
   };
@@ -120,12 +92,6 @@ export default function Upload() {
     <div className="upload-page">
       <div className="upload-card">
         <h2>Upload Video</h2>
-
-        {!user && (
-          <p style={{ color: "red", marginTop: 10 }}>
-            Bạn phải đăng nhập để upload video.
-          </p>
-        )}
 
         <div className="upload-row">
 
@@ -139,7 +105,6 @@ export default function Upload() {
           </div>
 
           <div className="form-col">
-
             <div className="field">
               <span>Chọn video</span>
               <input type="file" accept="video/*" onChange={handleFileChange} />
@@ -175,8 +140,9 @@ export default function Upload() {
               ></textarea>
             </div>
 
+            {/* ⭐ FIX NÚT UPLOAD — GIỮ UI CŨ ⭐ */}
             <button
-              className="upload-btn small-btn"
+              className="upload-btn"
               disabled={uploading}
               onClick={handleUpload}
             >
