@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";   // ⭐ cần để lấy user đăng nhập
 import "./Upload.css";
 
 export default function Upload() {
+  const { user } = useAuth();   // ⭐ Lấy user
   const [file, setFile] = useState(null);
   const [previewURL, setPreviewURL] = useState("");
   const [title, setTitle] = useState("");
@@ -42,17 +44,25 @@ export default function Upload() {
 
   // lưu DB vào Supabase
   const saveToSupabase = async (url) => {
+
+    // ⭐ KIỂM TRA USER ĐĂNG NHẬP
+    if (!user) {
+      alert("Bạn cần đăng nhập trước khi upload video!");
+      return false;
+    }
+
     const { error } = await supabase.from("videos").insert([
       {
         title,
         category,
         description,
         url,
+        user_id: user.id,   // ⭐ LƯU USER ĐĂNG VIDEO
       },
     ]);
 
     if (error) {
-      console.error(error);
+      console.error("Supabase insert error:", error);
       return false;
     }
 
