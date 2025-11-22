@@ -13,12 +13,12 @@ export default function App() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Load video mỗi lần mở trang → KHÔNG CACHE
+  // LOAD VIDEO (SẮP XẾP MỚI → CŨ)
   const loadVideos = async () => {
     const { data, error } = await supabase
       .from("videos")
       .select("*")
-      .order("id", { ascending: true });
+      .order("id", { ascending: false }); // 🔥 VIDEO MỚI NHẤT ĐỨNG ĐẦU
 
     if (error) {
       console.error("Load videos error:", error);
@@ -29,12 +29,12 @@ export default function App() {
     setLoading(false);
   };
 
-  // 🔥 Load lần đầu
+  // Load lần đầu
   useEffect(() => {
     loadVideos();
   }, []);
 
-  // 🔥 Realtime mode: khi có video mới → tự thêm vào list
+  // REALTIME: khi có video mới → thêm vào đầu danh sách
   useEffect(() => {
     const channel = supabase
       .channel("videos-realtime")
@@ -42,7 +42,7 @@ export default function App() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "videos" },
         (payload) => {
-          setVideos((old) => [...old, payload.new]);
+          setVideos((old) => [payload.new, ...old]); // 🔥 Thêm video mới vào đầu
         }
       )
       .subscribe();
