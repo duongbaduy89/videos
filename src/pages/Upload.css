@@ -1,119 +1,121 @@
-/* src/pages/Upload.css */
+/* ============ UPLOAD PAGE LAYOUT FIX ============ */
 .upload-page {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg,#0f1724 0%, #071123 100%);
-  padding: 24px;
-  color: #fff;
+  padding-top: 100px;     /* tránh header */
+  padding-bottom: 50px;   /* tránh mất phần cuối */
+  display: block;         /* bỏ flex để không căn giữa */
+  overflow-y: auto;       /* cho phép scroll */
+  background: #0a0a0a;
 }
 
+/* ============ UPLOAD CARD ============ */
 .upload-card {
-  width: 100%;
-  max-width: 980px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-  border-radius: 16px;
-  padding: 22px;
-  box-shadow: 0 8px 30px rgba(2,6,23,0.6);
-  border: 1px solid rgba(255,255,255,0.04);
+  width: 90%;
+  max-width: 900px;
+  background: #111;
+  padding: 20px;
+  border-radius: 18px;
+  color: white;
+  margin: 0 auto; /* căn giữa theo ngang */
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
 }
 
-.upload-card h2 {
-  margin: 0 0 12px 0;
-  font-size: 20px;
-  text-align: center;
-}
-
+/* ============ GRID ============ */
 .upload-row {
   display: flex;
-  gap: 18px;
-  align-items: flex-start;
+  gap: 20px;
 }
 
-.preview-col { flex: 0 0 340px; }
-.form-col { flex: 1; }
+/* Left Preview */
+.preview-col {
+  width: 40%;
+}
 
 .preview-box {
   width: 100%;
-  padding-top: 56%;
-  position: relative;
-  border-radius: 12px;
+  background: #222;
+  border-radius: 14px;
+  height: 260px;
   overflow: hidden;
-  background: rgba(255,255,255,0.02);
-  border: 1px dashed rgba(255,255,255,0.04);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .preview-empty {
-  position: absolute;
-  color: rgba(255,255,255,0.4);
-  font-size: 18px;
+  color: #777;
 }
 
 .preview-video {
-  position: absolute;
-  left: 0;
-  top: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* form fields */
+/* Right Form */
+.form-col {
+  width: 60%;
+}
+
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 15px;
 }
 
 .field span {
-  font-weight: 600;
-  font-size: 13px;
-  color: #e6eef8;
+  font-size: 15px;
+  margin-bottom: 6px;
 }
 
-.field input[type="file"] {
-  margin-top: 6px;
-}
-
-.field input[type="text"],
 .field input,
-.field textarea,
-.field select {
-  padding: 12px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.04);
-  color: #e6eef8;
+.field textarea {
   width: 100%;
-  box-sizing: border-box;
-}
-
-/* ==== NÚT UPLOAD MỚI (NHỎ + ĐẸP GIỐNG NÚT LOGIN) ==== */
-.upload-btn {
-  background: linear-gradient(90deg,#ff6b6b,#ff4d95);
-  border: none;
-  color: #fff;
-  padding: 10px 22px;
+  padding: 10px;
   border-radius: 10px;
-  font-weight: 700;
+  border: none;
+  background: #1c1c1c;
+  color: white;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* ============ UPLOAD BUTTON ============ */
+.upload-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  border-radius: 12px;
+  border: none;
   cursor: pointer;
-  margin-top: 6px;
-  box-shadow: 0 6px 18px rgba(255,77,149,0.12);
-  width: fit-content;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(45deg, #ff4da6, #ff6b9f);
+  box-shadow: 0px 4px 12px rgba(255, 77, 166, 0.4);
+  transition: 0.2s;
 }
 
-.upload-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.upload-btn:active {
+  transform: scale(0.97);
 }
 
-/* responsive */
-@media (max-width: 900px) {
-  .upload-row { flex-direction: column; }
-  .preview-col { width: 100%; flex: none; padding-bottom: 0; }
+/* Status text */
+.status-text {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #eee;
+}
+
+/* ========= MOBILE ========= */
+@media (max-width: 768px) {
+  .upload-row {
+    flex-direction: column;
+  }
+
+  .preview-col,
+  .form-col {
+    width: 100%;
+  }
 }
