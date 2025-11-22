@@ -1,0 +1,52 @@
+.page-container {
+  margin-top: 80px; /* tránh bị header che */
+}
+
+.auth-center {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-box {
+  width: 100%;
+  max-width: 350px;
+  background: rgba(20, 20, 20, 0.9);
+  padding: 25px;
+  border-radius: 12px;
+  color: white;
+}
+
+.auth-box h2 {
+  margin-bottom: 15px;
+}
+
+.auth-input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  font-size: 16px;
+}
+
+.auth-btn {
+  width: 100%;
+  margin-top: 15px;
+  padding: 12px;
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.auth-error {
+  background: #ef4444;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  text-align: center;
+}

@@ -1,72 +1,58 @@
 import React, { useState } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../supabaseClient";
+import { useNavigate } from "react-router-dom";
+import "./Auth.css";
 
 export default function Login() {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const passwordLogin = async () => {
-    const { error } = await supabase.auth.signInWithPassword({
+  const handleLogin = async () => {
+    setError("");
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      alert(error.message);
-    } else {
-      window.location.href = "/"; // 🔥 redirect về trang chủ
+    if (loginError) {
+      setError(loginError.message);
+      return;
     }
+
+    navigate("/");
   };
 
   return (
-    <div className="login-box" style={{ padding: 20 }}>
-      <h2 style={{ marginBottom: 20 }}>Đăng nhập</h2>
+    <div className="page-container auth-center">
+      <div className="auth-box">
+        <h2>Đăng nhập</h2>
 
-      <input
-        placeholder="Email..."
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 8,
-        }}
-      />
+        {error && <p className="auth-error">{error}</p>}
 
-      <input
-        placeholder="Mật khẩu..."
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 10,
-          marginBottom: 20,
-          borderRadius: 8,
-        }}
-      />
+        <input
+          className="auth-input"
+          type="email"
+          placeholder="Email..."
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-      <button
-        onClick={passwordLogin}
-        style={{
-          width: "100%",
-          padding: 12,
-          background: "#0a84ff",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-        }}
-      >
-        Đăng nhập
-      </button>
+        <input
+          className="auth-input"
+          type="password"
+          placeholder="Mật khẩu..."
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-      <p style={{ marginTop: 20 }}>
-        Chưa có tài khoản?{" "}
-        <a href="/signup" style={{ color: "#0a84ff" }}>
-          Đăng ký
-        </a>
-      </p>
+        <button className="auth-btn" onClick={handleLogin}>
+          Đăng nhập
+        </button>
+      </div>
     </div>
   );
 }

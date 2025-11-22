@@ -1,46 +1,85 @@
+/* ================================
+   HEADER FIX — KHÔNG CHE NỘI DUNG
+   ================================ */
+
 .header-container {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  height: 60px;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(8px);
+  width: 100%;
+  height: 65px;
+
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
-  z-index: 99999;
+  align-items: center;
+
+  padding: 0 20px;
+
+  background: rgba(0, 0, 0, 0.78);   /* nền tối rõ, không mờ */
+  backdrop-filter: none;            /* tắt hiệu ứng blur */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+
+  z-index: 1000;
 }
 
+/* Logo */
 .header-logo {
-  font-size: 20px;
-  font-weight: bold;
-  color: white;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
   text-decoration: none;
 }
 
+/* Right area */
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
+/* Username */
+.header-username {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Buttons */
 .header-btn {
-  padding: 8px 12px;
-  font-size: 14px;
-  background: #1d9bf0;
-  border-radius: 8px;
-  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #0ea5e9;
   color: white;
   text-decoration: none;
+  font-size: 15px;
+  transition: 0.2s;
 }
 
-.header-btn.logout {
-  background: #ff4d4d;
+.header-btn:hover {
+  opacity: 0.85;
 }
 
-.header-username {
-  color: white;
-  font-size: 14px;
+.logout {
+  background: #ef4444 !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .header-container {
+    padding: 0 10px;
+    height: 60px;
+  }
+
+  .header-logo {
+    font-size: 18px;
+  }
+
+  .header-btn {
+    font-size: 14px;
+    padding: 5px 10px;
+  }
+
+  .header-username {
+    font-size: 14px;
+  }
 }

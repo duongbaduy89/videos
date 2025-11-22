@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../supabaseClient";
 import "./Header.css";
 
 export default function Header() {
@@ -8,8 +9,11 @@ export default function Header() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/login");
+    await supabase.auth.signOut();  // Đăng xuất khỏi Supabase
+
+    if (logout) logout();           // Xóa state user trong AuthContext
+
+    navigate("/");                  // Quay về trang chủ
   };
 
   return (
@@ -19,7 +23,7 @@ export default function Header() {
       </Link>
 
       <div className="header-right">
-        {!user && (
+        {!user ? (
           <>
             <Link className="header-btn" to="/login">
               Đăng nhập
@@ -28,9 +32,7 @@ export default function Header() {
               Đăng ký
             </Link>
           </>
-        )}
-
-        {user && (
+        ) : (
           <>
             <span className="header-username">
               {profile?.username || "User"}

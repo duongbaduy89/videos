@@ -1,111 +1,94 @@
 import React, { useState } from "react";
-import { supabase } from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../supabaseClient";
+import "./Auth.css";
 
 export default function Signup() {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
 
-  const signup = async () => {
+  const navigate = useNavigate();
+
+  const handleSignup = async () => {
+    setError("");
+
     if (!username.trim()) {
-      alert("Vui lòng nhập username");
-      return;
+      return setError("Bạn phải nhập username!");
+    }
+    if (password !== confirm) {
+      return setError("Mật khẩu không khớp!");
     }
 
-    // 1) Đăng ký Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
+    // Đăng ký tài khoản Supabase
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
     });
 
-    if (error) {
-      alert(error.message);
+    if (signUpError) {
+      setError(signUpError.message);
       return;
     }
 
-    // 2) Lấy userID sau đăng ký
-    const userId = data?.user?.id;
-    if (!userId) {
-      alert("Không lấy được user ID");
-      return;
+    const user = data.user;
+    if (user) {
+      // Lưu username vào bảng profiles
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        username: username,
+      });
     }
 
-    // 3) Update bảng profiles
-    const { error: profileErr } = await supabase
-      .from("profiles")
-      .update({ username })
-      .eq("id", userId);
-
-    if (profileErr) {
-      alert("Lỗi update profile: " + profileErr.message);
-      return;
-    }
-
-    alert("Đăng ký thành công! Hãy đăng nhập.");
-    window.location.href = "/login";
+    alert("Đăng ký thành công! Hãy kiểm tra email để xác nhận.");
+    navigate("/login");
   };
 
   return (
-    <div className="login-box" style={{ padding: 20 }}>
-      <h2 style={{ marginBottom: 20 }}>Tạo tài khoản</h2>
+    <div className="page-container auth-center">
+      <div className="auth-box">
+        <h2>Đăng ký</h2>
 
-      <input
-        placeholder="Username..."
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 8,
-        }}
-      />
+        {error && <p className="auth-error">{error}</p>}
 
-      <input
-        placeholder="Nhập email..."
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 8,
-        }}
-      />
+        <input
+          className="auth-input"
+          type="text"
+          placeholder="Username..."
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
 
-      <input
-        placeholder="Mật khẩu..."
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 10,
-          marginBottom: 20,
-          borderRadius: 8,
-        }}
-      />
+        <input
+          className="auth-input"
+          type="email"
+          placeholder="Email..."
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-      <button
-        onClick={signup}
-        style={{
-          width: "100%",
-          padding: 12,
-          background: "#0a84ff",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-        }}
-      >
-        Đăng ký
-      </button>
+        <input
+          className="auth-input"
+          type="password"
+          placeholder="Mật khẩu..."
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-      <p style={{ marginTop: 20 }}>
-        Đã có tài khoản?{" "}
-        <a href="/login" style={{ color: "#0a84ff" }}>
-          Đăng nhập
-        </a>
-      </p>
+        <input
+          className="auth-input"
+          type="password"
+          placeholder="Nhập lại mật khẩu..."
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+
+        <button className="auth-btn" onClick={handleSignup}>
+          Đăng ký
+        </button>
+      </div>
     </div>
   );
 }
