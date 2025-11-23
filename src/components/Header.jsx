@@ -28,7 +28,16 @@ export default function Header() {
           </>
         ) : (
           <>
-            <span className="header-username">@{profile?.username}</span>
+            {/* ===========================
+                BẤM USERNAME → MỞ PROFILE
+            ============================ */}
+            <Link
+              to={`/profile/${user.id}`}
+              className="header-username"
+              style={{ cursor: "pointer", textDecoration: "none" }}
+            >
+              @{profile?.username}
+            </Link>
 
             <Link className="header-btn" to="/upload">Upload</Link>
 

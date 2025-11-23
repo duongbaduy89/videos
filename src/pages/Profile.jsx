@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import TwitterVideoPlayer from "../components/TwitterVideoPlayer";
 
 export default function Profile() {
   const { id } = useParams();
@@ -10,18 +9,16 @@ export default function Profile() {
 
   const [profile, setProfile] = useState(null);
   const [videos, setVideos] = useState([]);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [loadingFollowState, setLoadingFollowState] = useState(true);
+  const [editing, setEditing] = useState(false);
+
+  const [newBio, setNewBio] = useState("");
+  const [newAvatar, setNewAvatar] = useState(null);
 
   useEffect(() => {
     loadProfile();
     loadVideos();
-    checkFollowState();
-  }, [id, user]);
+  }, [id]);
 
-  // ===========================
-  // 1) Load thông tin Profile
-  // ===========================
   const loadProfile = async () => {
     const { data } = await supabase
       .from("profiles")
@@ -30,11 +27,9 @@ export default function Profile() {
       .single();
 
     setProfile(data);
+    setNewBio(data?.bio || "");
   };
 
-  // ===========================
-  // 2) Load video của user
-  // ===========================
   const loadVideos = async () => {
     const { data } = await supabase
       .from("videos")
@@ -45,63 +40,61 @@ export default function Profile() {
     setVideos(data || []);
   };
 
-  // ===========================
-  // 3) Kiểm tra follow chính xác
-  // ===========================
-  const checkFollowState = async () => {
-    if (!user || user.id === id) {
-      setIsFollowing(false);
-      setLoadingFollowState(false);
+  // ============================
+  //     UPDATE PROFILE
+  // ============================
+  const updateProfile = async () => {
+    let avatar_url = profile.avatar_url;
+
+    // Upload avatar nếu user chọn avatar mới
+    if (newAvatar) {
+      const fileExt = newAvatar.name.split(".").pop();
+      const fileName = `${id}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, newAvatar, {
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error(uploadError);
+        alert("Upload avatar thất bại.");
+        return;
+      }
+
+      const { data: publicURL } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      avatar_url = publicURL.publicUrl;
+    }
+
+    // Update Supabase Database
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        bio: newBio,
+        avatar_url,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Cập nhật thất bại");
       return;
     }
 
-    const { data } = await supabase
-      .from("follows")
-      .select("*")
-      .eq("follower_id", user.id)
-      .eq("following_id", id)
-      .maybeSingle();
-
-    setIsFollowing(!!data);
-    setLoadingFollowState(false);
-  };
-
-  // ===========================
-  // 4) Follow / Unfollow
-  // ===========================
-  const handleFollow = async () => {
-    if (!user) return alert("Bạn cần đăng nhập để follow!");
-
-    if (!isFollowing) {
-      // FOLLOW
-      await supabase.from("follows").insert([
-        { follower_id: user.id, following_id: id },
-      ]);
-
-      await supabase.rpc("increment_followers", { user_id: id });
-      await supabase.rpc("increment_following", { user_id: user.id });
-    } else {
-      // UNFOLLOW
-      await supabase
-        .from("follows")
-        .delete()
-        .eq("follower_id", user.id)
-        .eq("following_id", id);
-
-      await supabase.rpc("decrement_followers", { user_id: id });
-      await supabase.rpc("decrement_following", { user_id: user.id });
-    }
-
-    // Reload lại dữ liệu
-    await loadProfile();
-    await checkFollowState();
+    setEditing(false);
+    loadProfile();
   };
 
   if (!profile) return <div style={{ padding: 20 }}>Đang tải...</div>;
 
   return (
     <div style={{ padding: 20, color: "white" }}>
-      {/* ===================== HEADER PROFILE ===================== */}
+      {/* ===================== HEADER ===================== */}
       <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
         <img
           src={profile.avatar_url || "/default-avatar.png"}
@@ -117,43 +110,114 @@ export default function Profile() {
           <h2>@{profile.username}</h2>
           <p>{profile.bio || "Chưa có mô tả"}</p>
 
-          {/* Lượt follow */}
+          {/* Followers / Following */}
           <div style={{ marginTop: 5, opacity: 0.8 }}>
             Followers: {profile.followers_count || 0} | Following:{" "}
             {profile.following_count || 0}
           </div>
 
-          {/* ===================== NÚT FOLLOW ===================== */}
-          {!loadingFollowState &&
-            user &&
-            user.id !== id && ( // Ẩn khi xem trang của mình
-              <button
-                onClick={handleFollow}
-                style={{
-                  marginTop: 8,
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  background: isFollowing ? "#555" : "#ff0050",
-                  border: "none",
-                  color: "white",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
-              >
-                {isFollowing ? "Đang Follow" : "Follow"}
-              </button>
-            )}
+          {/* Chỉ hiện nút khi xem chính profile của mình */}
+          {user && user.id === id && (
+            <button
+              onClick={() => setEditing(true)}
+              style={{
+                marginTop: 8,
+                padding: "6px 14px",
+                borderRadius: 8,
+                background: "#555",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              Chỉnh sửa hồ sơ
+            </button>
+          )}
         </div>
       </div>
 
+      {/* ===================== POPUP EDIT PROFILE ===================== */}
+      {editing && (
+        <div
+          style={{
+            marginTop: 20,
+            padding: 15,
+            background: "#222",
+            borderRadius: 10,
+          }}
+        >
+          <h3>Chỉnh sửa hồ sơ</h3>
+
+          {/* Avatar Upload */}
+          <label>Avatar mới:</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setNewAvatar(e.target.files[0])}
+            style={{ display: "block", marginTop: 10 }}
+          />
+
+          {/* Bio */}
+          <label style={{ marginTop: 15, display: "block" }}>Bio:</label>
+          <textarea
+            value={newBio}
+            onChange={(e) => setNewBio(e.target.value)}
+            style={{
+              width: "100%",
+              height: 80,
+              padding: 10,
+              borderRadius: 8,
+              marginTop: 5,
+            }}
+          />
+
+          {/* Buttons */}
+          <div style={{ marginTop: 10 }}>
+            <button
+              onClick={updateProfile}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                background: "#0af",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+                marginRight: 10,
+              }}
+            >
+              Lưu thay đổi
+            </button>
+
+            <button
+              onClick={() => setEditing(false)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                background: "#444",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
+
       <hr style={{ margin: "20px 0", borderColor: "#444" }} />
 
-      {/* ===================== DANH SÁCH VIDEO ===================== */}
+      {/* ===================== VIDEO LIST ===================== */}
       <h3>Video của @{profile.username}</h3>
 
       {videos.map((v) => (
         <div key={v.id} style={{ marginTop: 20 }}>
-          <TwitterVideoPlayer videoUrl={v.url} autoPlayEnabled={false} />
+          <video
+            src={v.url}
+            controls
+            style={{ width: "100%", borderRadius: 10 }}
+          />
           <p style={{ marginTop: 8 }}>{v.title}</p>
         </div>
       ))}

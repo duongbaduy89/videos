@@ -1,29 +1,192 @@
+// src/components/CommentPanel.jsx
 import React, { useEffect, useState } from "react";
-import { fetchComments, postComment } from "../api/comments";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  fetchComments,
+  postComment as apiPostComment,
+  deleteComment as apiDeleteComment,
+} from "../api/comments";
 import "../styles/commentPanel.css";
+
+function CommentItem({
+  c,
+  depth = 0,
+  onReply,
+  onDelete,
+  replyingTo,
+  setReplyingTo,
+}) {
+  const [showReplies, setShowReplies] = useState(true);
+
+  return (
+    <div className="comment-item" style={{ marginLeft: depth * 14 }}>
+      <div className="comment-main">
+        <Link to={`/profile/${c.user_id}`} className="comment-avatar-wrap">
+          <img
+            src={c.user?.avatar_url || "/default-avatar.png"}
+            alt={c.user?.username || "avatar"}
+            className="comment-avatar"
+          />
+        </Link>
+
+        <div className="comment-bubble">
+          <div className="comment-meta">
+            <Link to={`/profile/${c.user_id}`} className="comment-username">
+              @{c.user?.username || "unknown"}
+            </Link>
+            <span className="comment-time">
+              {" • "}{new Date(c.created_at).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="comment-content">{c.content}</div>
+
+          <div className="comment-actions">
+            <button
+              className="c-action"
+              onClick={() => {
+                onReply(c.id, c.user?.username);
+                setReplyingTo(c.id);
+              }}
+            >
+              Reply
+            </button>
+
+            {onDelete && (
+              <button
+                className="c-action"
+                onClick={() => onDelete(c.id)}
+                style={{ color: "#ff6b6b" }}
+              >
+                Delete
+              </button>
+            )}
+
+            {c.children?.length > 0 && (
+              <button
+                className="c-action"
+                onClick={() => setShowReplies(!showReplies)}
+              >
+                {showReplies ? "Ẩn câu trả lời" : `Hiện câu trả lời (${c.children.length})`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showReplies &&
+        c.children?.map((ch) => (
+          <CommentItem
+            key={ch.id}
+            c={ch}
+            depth={depth + 1}
+            onReply={onReply}
+            onDelete={onDelete}
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+          />
+        ))}
+    </div>
+  );
+}
 
 export default function CommentPanel({ video, onClose }) {
   const { user } = useAuth();
-  const [comments, setComments] = useState([]);
+  const [commentsTree, setCommentsTree] = useState([]);
+  const [flatComments, setFlatComments] = useState([]); // optional
   const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null); // id của comment đang reply
+  const [replyPlaceholder, setReplyPlaceholder] = useState("");
 
   useEffect(() => {
     if (!video) return;
-    const load = async () => {
-      const list = await fetchComments(video.id);
-      setComments(list);
-    };
     load();
   }, [video]);
 
-  const sendComment = async () => {
-    if (!user) return alert("Bạn cần đăng nhập để bình luận!");
-    if (!text.trim()) return;
+  const load = async () => {
+    const list = await fetchComments(video.id);
+    setFlatComments(list || []);
+    const tree = buildTree(list || []);
+    setCommentsTree(tree);
+  };
 
-    const newCmt = await postComment(user.id, video.id, text.trim());
-    setComments((prev) => [...prev, newCmt]);
-    setText("");
+  // xây cây nested từ flat array (parent_id)
+  const buildTree = (list) => {
+    const map = {};
+    list.forEach((c) => (map[c.id] = { ...c, children: [] }));
+    const roots = [];
+    list.forEach((c) => {
+      if (c.parent_id) {
+        const parent = map[c.parent_id];
+        if (parent) parent.children.push(map[c.id]);
+        else roots.push(map[c.id]); // orphan, push as root
+      } else {
+        roots.push(map[c.id]);
+      }
+    });
+    // sort children by created_at asc (older first)
+    const sortRec = (nodes) => {
+      nodes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      nodes.forEach((n) => sortRec(n.children));
+    };
+    sortRec(roots);
+    return roots;
+  };
+
+  const sendComment = async (parentId = null) => {
+    if (!user) {
+      alert("Bạn cần đăng nhập để bình luận!");
+      return;
+    }
+    const content = (parentId ? textForReply() : text).trim();
+    if (!content) return;
+    try {
+      setPosting(true);
+      const newC = await apiPostComment({
+        user_id: user.id,
+        video_id: video.id,
+        content,
+        parent_id: parentId || null,
+      });
+      // reload
+      await load();
+      setText("");
+      setReplyingTo(null);
+      setReplyPlaceholder("");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const onReply = (commentId, username) => {
+    setReplyingTo(commentId);
+    setReplyPlaceholder(username ? `@${username} ` : "");
+    // focus input after set
+    setTimeout(() => {
+      const el = document.querySelector(".comment-input");
+      if (el) el.focus();
+    }, 50);
+  };
+
+  const textForReply = () => {
+    // if the input contains @username prefix, keep it and the rest
+    return text;
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!user) return;
+    // Only allow delete if comment belongs to user
+    const comment = flatComments.find((c) => c.id === commentId);
+    if (!comment) return;
+    if (comment.user_id !== user.id) {
+      alert("Bạn chỉ có thể xóa bình luận của chính mình.");
+      return;
+    }
+    if (!confirm("Bạn có chắc muốn xóa bình luận này?")) return;
+    await apiDeleteComment(commentId);
+    await load();
   };
 
   return (
@@ -31,31 +194,64 @@ export default function CommentPanel({ video, onClose }) {
       <div className="comment-panel" onClick={(e) => e.stopPropagation()}>
         <div className="comment-header">
           <b>Bình luận</b>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
         <div className="comment-list">
-          {comments.map((c) => (
-            <div key={c.id} className="comment-item">
-              <div className="comment-user">
-                <img src={c.user?.avatar_url || "/default.png"} className="comment-avatar" />
-                <span className="comment-username">{c.user?.username}</span>
-              </div>
-              <div className="comment-content">{c.content}</div>
-            </div>
+          {commentsTree.length === 0 && (
+            <div className="empty">Chưa có bình luận nào — trở thành người đầu tiên nhé!</div>
+          )}
+          {commentsTree.map((c) => (
+            <CommentItem
+              key={c.id}
+              c={c}
+              onReply={onReply}
+              onDelete={handleDelete}
+              replyingTo={replyingTo}
+              setReplyingTo={setReplyingTo}
+            />
           ))}
         </div>
 
+        {/* Input row */}
         <div className="comment-input-row">
           <input
             className="comment-input"
-            placeholder="Nhập bình luận..."
+            placeholder={replyingTo ? replyPlaceholder || "Nhập reply..." : "Nhập bình luận..."}
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || !e.shiftKey)) {
+                // Enter to send
+                e.preventDefault();
+                sendComment(replyingTo);
+              }
+            }}
           />
-          <button className="comment-send" onClick={sendComment}>
-            Gửi
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {replyingTo && (
+              <button
+                className="comment-cancel-reply"
+                onClick={() => {
+                  setReplyingTo(null);
+                  setReplyPlaceholder("");
+                  setText("");
+                }}
+                disabled={posting}
+              >
+                Hủy
+              </button>
+            )}
+            <button
+              className="comment-send"
+              onClick={() => sendComment(replyingTo)}
+              disabled={posting}
+            >
+              {posting ? "Đang gửi..." : replyingTo ? "Gửi reply" : "Gửi"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
