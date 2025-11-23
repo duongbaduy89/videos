@@ -17,18 +17,15 @@ export default function VideoFeed({ videos }) {
   const [isLiked, setIsLiked] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
 
-  // load video khi index đổi
   useEffect(() => {
     const v = videos[index];
     setCurrentVideo(v);
     if (v) loadStats(v.id);
   }, [index, videos]);
 
-  // Tải stats từ DB
   const loadStats = async (videoId) => {
     if (!videoId) return;
 
-    // like count
     let { data: likes } = await supabase
       .from("video_likes")
       .select("*", { count: "exact" })
@@ -36,7 +33,6 @@ export default function VideoFeed({ videos }) {
 
     setLikesCount(likes?.length || 0);
 
-    // comment count
     let { data: comments } = await supabase
       .from("comments")
       .select("*", { count: "exact" })
@@ -44,7 +40,6 @@ export default function VideoFeed({ videos }) {
 
     setCommentsCount(comments?.length || 0);
 
-    // user liked?
     if (user) {
       let { data: mylike } = await supabase
         .from("video_likes")
@@ -56,7 +51,6 @@ export default function VideoFeed({ videos }) {
       setIsLiked(!!mylike);
     }
 
-    // user follow?
     if (user && currentVideo?.user_id) {
       let { data: myf } = await supabase
         .from("follows")
@@ -69,7 +63,6 @@ export default function VideoFeed({ videos }) {
     }
   };
 
-  // LIKE / UNLIKE
   const handleLike = async () => {
     if (!user) return alert("Bạn cần đăng nhập để like!");
 
@@ -91,7 +84,6 @@ export default function VideoFeed({ videos }) {
     }
   };
 
-  // FOLLOW
   const handleFollow = async () => {
     if (!user) return alert("Bạn cần đăng nhập để follow!");
 
@@ -138,10 +130,31 @@ export default function VideoFeed({ videos }) {
 
       {/* ==== UI dưới video ==== */}
       <div className="video-info-box">
+
+        {/* ==== Avatar + Username + Link to Profile ==== */}
         <div className="user-row">
-          <span className="username">
-            @{currentVideo.username || "unknown"}
-          </span>
+          <a
+            href={`/profile/${currentVideo.user_id}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              textDecoration: "none",
+              color: "white",
+            }}
+          >
+            <img
+              src={currentVideo.profiles?.avatar_url || "/default-avatar.png"}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                objectFit: "cover",
+              }}
+            />
+
+            <span>@{currentVideo.profiles?.username || "unknown"}</span>
+          </a>
 
           <button
             className="follow-btn"
