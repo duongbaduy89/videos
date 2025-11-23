@@ -17,7 +17,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const loadVideos = async () => {
-    // 1) Lấy danh sách video bình thường
     const { data: raw, error } = await supabase
       .from("videos")
       .select("*")
@@ -29,23 +28,26 @@ export default function App() {
       return;
     }
 
-    // 2) Lấy username + avatar theo user_id
-    const videosWithAuthor = await Promise.all(
-      raw.map(async (v) => {
+    // CHẶN VIDEO KHÔNG CÓ user_id (tránh lỗi id=null)
+    const clean = raw.filter(v => v.user_id);
+
+    // Lấy profile của chủ video
+    const videosWithProfile = await Promise.all(
+      clean.map(async (v) => {
         const { data: profile } = await supabase
           .from("profiles")
           .select("username, avatar_url")
           .eq("id", v.user_id)
-          .single();
+          .maybeSingle();
 
         return {
           ...v,
-          profiles: profile || {},
+          profiles: profile || null,
         };
       })
     );
 
-    setVideos(videosWithAuthor);
+    setVideos(videosWithProfile);
     setLoading(false);
   };
 

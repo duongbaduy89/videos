@@ -18,26 +18,26 @@ export default function VideoFeed({ videos }) {
   const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
-    const v = videos[index];
-    setCurrentVideo(v);
-    if (v) loadStats(v.id);
+    setCurrentVideo(videos[index]);
   }, [index, videos]);
 
-  const loadStats = async (videoId) => {
-    if (!videoId) return;
+  useEffect(() => {
+    if (currentVideo?.id) loadStats();
+  }, [currentVideo]);
+
+  const loadStats = async () => {
+    const videoId = currentVideo.id;
 
     let { data: likes } = await supabase
       .from("video_likes")
-      .select("*", { count: "exact" })
+      .select("*")
       .eq("video_id", videoId);
-
     setLikesCount(likes?.length || 0);
 
     let { data: comments } = await supabase
       .from("comments")
-      .select("*", { count: "exact" })
+      .select("*")
       .eq("video_id", videoId);
-
     setCommentsCount(comments?.length || 0);
 
     if (user) {
@@ -47,24 +47,23 @@ export default function VideoFeed({ videos }) {
         .eq("video_id", videoId)
         .eq("user_id", user.id)
         .maybeSingle();
-
       setIsLiked(!!mylike);
     }
 
     if (user && currentVideo?.user_id) {
-      let { data: myf } = await supabase
+      let { data: f } = await supabase
         .from("follows")
         .select("*")
         .eq("follower_id", user.id)
         .eq("following_id", currentVideo.user_id)
         .maybeSingle();
-
-      setIsFollowing(!!myf);
+      setIsFollowing(!!f);
     }
   };
 
   const handleLike = async () => {
     if (!user) return alert("Bạn cần đăng nhập để like!");
+    if (!currentVideo?.id) return;
 
     if (!isLiked) {
       await supabase.from("video_likes").insert([
@@ -86,21 +85,28 @@ export default function VideoFeed({ videos }) {
 
   const handleFollow = async () => {
     if (!user) return alert("Bạn cần đăng nhập để follow!");
+    if (!currentVideo?.user_id) return;
+
+    const targetUser = currentVideo.user_id;
 
     if (!isFollowing) {
       await supabase.from("follows").insert([
-        {
-          follower_id: user.id,
-          following_id: currentVideo.user_id,
-        },
+        { follower_id: user.id, following_id: targetUser },
       ]);
+
+      await supabase.rpc("increment_followers", { user_id: targetUser });
+      await supabase.rpc("increment_following", { user_id: user.id });
+
       setIsFollowing(true);
     } else {
       await supabase
         .from("follows")
         .delete()
         .eq("follower_id", user.id)
-        .eq("following_id", currentVideo.user_id);
+        .eq("following_id", targetUser);
+
+      await supabase.rpc("decrement_followers", { user_id: targetUser });
+      await supabase.rpc("decrement_following", { user_id: user.id });
 
       setIsFollowing(false);
     }
@@ -128,10 +134,7 @@ export default function VideoFeed({ videos }) {
         liked={isLiked}
       />
 
-      {/* ==== UI dưới video ==== */}
       <div className="video-info-box">
-
-        {/* ==== Avatar + Username + Link to Profile ==== */}
         <div className="user-row">
           <a
             href={`/profile/${currentVideo.user_id}`}
@@ -145,38 +148,25 @@ export default function VideoFeed({ videos }) {
           >
             <img
               src={currentVideo.profiles?.avatar_url || "/default-avatar.png"}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                objectFit: "cover",
-              }}
+              style={{ width: 40, height: 40, borderRadius: "50%" }}
             />
-
             <span>@{currentVideo.profiles?.username || "unknown"}</span>
           </a>
 
           <button
             className="follow-btn"
             onClick={handleFollow}
-            style={{
-              background: isFollowing ? "#555" : "#ff0050",
-            }}
+            style={{ background: isFollowing ? "#555" : "#ff0050" }}
           >
             {isFollowing ? "Đang Follow" : "Follow"}
           </button>
         </div>
 
         <div className="video-title">{currentVideo.title}</div>
-
-        <div className="video-desc">
-          {currentVideo.description?.slice(0, 80)}
-        </div>
+        <div className="video-desc">{currentVideo.description?.slice(0, 80)}</div>
 
         <div className="video-stats">
-          <span style={{ color: isLiked ? "red" : "white" }}>
-            ❤️ {likesCount}
-          </span>
+          <span style={{ color: isLiked ? "red" : "white" }}>❤️ {likesCount}</span>
           <span style={{ marginLeft: 15 }}>💬 {commentsCount}</span>
         </div>
       </div>

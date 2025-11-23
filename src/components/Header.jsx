@@ -9,11 +9,9 @@ export default function Header() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();  // Đăng xuất khỏi Supabase
-
-    if (logout) logout();           // Xóa state user trong AuthContext
-
-    navigate("/");                  // Quay về trang chủ
+    await supabase.auth.signOut();
+    if (logout) logout();
+    navigate("/");
   };
 
   return (
@@ -25,22 +23,14 @@ export default function Header() {
       <div className="header-right">
         {!user ? (
           <>
-            <Link className="header-btn" to="/login">
-              Đăng nhập
-            </Link>
-            <Link className="header-btn" to="/signup">
-              Đăng ký
-            </Link>
+            <Link className="header-btn" to="/login">Đăng nhập</Link>
+            <Link className="header-btn" to="/signup">Đăng ký</Link>
           </>
         ) : (
           <>
-            <span className="header-username">
-              {profile?.username || "User"}
-            </span>
+            <span className="header-username">@{profile?.username}</span>
 
-            <Link className="header-btn" to="/upload">
-              Upload
-            </Link>
+            <Link className="header-btn" to="/upload">Upload</Link>
 
             <button className="header-btn logout" onClick={handleLogout}>
               Logout
