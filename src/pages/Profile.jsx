@@ -14,6 +14,9 @@ export default function Profile() {
   const [newBio, setNewBio] = useState("");
   const [newAvatar, setNewAvatar] = useState(null);
 
+  // Worker upload avatar của bạn
+  const WORKER_UPLOAD_URL = "https://uploadavatar.dataphim002.workers.dev";
+
   useEffect(() => {
     loadProfile();
     loadVideos();
@@ -40,38 +43,40 @@ export default function Profile() {
     setVideos(data || []);
   };
 
-  // ============================
-  //     UPDATE PROFILE
-  // ============================
+  // ============================================
+  //      UPDATE PROFILE + UPLOAD AVATAR R2
+  // ============================================
   const updateProfile = async () => {
     let avatar_url = profile.avatar_url;
 
-    // Upload avatar nếu user chọn avatar mới
+    // Nếu có chọn avatar mới → upload lên Cloudflare Worker
     if (newAvatar) {
-      const fileExt = newAvatar.name.split(".").pop();
-      const fileName = `${id}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      try {
+        const formData = new FormData();
+        formData.append("file", newAvatar);
+        formData.append("folder", "avatar/");
 
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, newAvatar, {
-          upsert: true,
+        const res = await fetch(WORKER_UPLOAD_URL, {
+          method: "POST",
+          body: formData,
         });
 
-      if (uploadError) {
-        console.error(uploadError);
-        alert("Upload avatar thất bại.");
+        const result = await res.json();
+
+        if (!result.success) {
+          alert("Upload avatar thất bại!");
+          return;
+        }
+
+        avatar_url = result.publicUrl; // URL public từ R2
+      } catch (err) {
+        console.error(err);
+        alert("Lỗi upload avatar lên Cloudflare R2");
         return;
       }
-
-      const { data: publicURL } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      avatar_url = publicURL.publicUrl;
     }
 
-    // Update Supabase Database
+    // Cập nhật Supabase Database
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -81,8 +86,8 @@ export default function Profile() {
       .eq("id", id);
 
     if (error) {
-      console.error(error);
       alert("Cập nhật thất bại");
+      console.error(error);
       return;
     }
 
@@ -110,13 +115,11 @@ export default function Profile() {
           <h2>@{profile.username}</h2>
           <p>{profile.bio || "Chưa có mô tả"}</p>
 
-          {/* Followers / Following */}
           <div style={{ marginTop: 5, opacity: 0.8 }}>
             Followers: {profile.followers_count || 0} | Following:{" "}
             {profile.following_count || 0}
           </div>
 
-          {/* Chỉ hiện nút khi xem chính profile của mình */}
           {user && user.id === id && (
             <button
               onClick={() => setEditing(true)}
