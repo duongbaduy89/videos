@@ -10,9 +10,18 @@ import { AiOutlineHeart, AiFillHeart } from "react-icons/ai";
 import { IoExpandOutline } from "react-icons/io5";
 import "../styles/twitterVideo.css";
 
+/**
+ * Props:
+ * - videoUrl (string) OR video (object) -> this component will prefer videoUrl prop
+ * - autoPlayEnabled (bool)
+ * - onOpenComments (fn)
+ * - onLike (fn)
+ * - liked (bool)
+ */
 export default function TwitterVideoPlayer({
   videoUrl,
-  autoPlayEnabled,
+  video,
+  autoPlayEnabled = true,
   onOpenComments,
   onLike,
   liked,
@@ -21,12 +30,17 @@ export default function TwitterVideoPlayer({
   const [playing, setPlaying] = useState(autoPlayEnabled);
   const [muted, setMuted] = useState(!autoPlayEnabled);
 
+  useEffect(() => {
+    // autoplay handling: if autoplay disabled, set muted true by default to avoid issues on some browsers
+    setMuted(!autoPlayEnabled);
+  }, [autoPlayEnabled]);
+
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
 
     if (v.paused) {
-      v.play();
+      v.play().catch(() => {});
       setPlaying(true);
     } else {
       v.pause();
@@ -34,10 +48,13 @@ export default function TwitterVideoPlayer({
     }
   };
 
+  const src = videoUrl || (video && (video.url || video.video_url));
+
   return (
     <div
       className="twitter-container"
       onClick={(e) => {
+        // click on video container toggles play/pause unless clicking a control
         if (
           !e.target.closest(".t-btn") &&
           !e.target.closest(".twitter-progress-wrap")
@@ -48,7 +65,7 @@ export default function TwitterVideoPlayer({
     >
       <video
         ref={videoRef}
-        src={videoUrl}
+        src={src}
         playsInline
         loop
         autoPlay={autoPlayEnabled}
@@ -58,30 +75,56 @@ export default function TwitterVideoPlayer({
 
       {/* RIGHT BUTTONS */}
       <div className="twitter-right-controls" onClick={(e) => e.stopPropagation()}>
-        
         {/* COMMENT */}
-        <button className="t-btn" onClick={onOpenComments}>
+        <button
+          className="t-btn"
+          onClick={() => {
+            if (onOpenComments) onOpenComments();
+          }}
+          title="Bình luận"
+        >
           <FiMessageCircle size={22} />
         </button>
 
         {/* LIKE */}
-        <button className="t-btn" onClick={onLike}>
-          {liked ? (
-            <AiFillHeart size={24} color="red" />
-          ) : (
-            <AiOutlineHeart size={24} />
-          )}
+        <button
+          className="t-btn"
+          onClick={() => {
+            if (onLike) onLike();
+          }}
+          title="Thích"
+        >
+          {liked ? <AiFillHeart size={24} color="red" /> : <AiOutlineHeart size={24} />}
         </button>
 
-        <button className="t-btn">
+        {/* SAVE / BOOKMARK */}
+        <button className="t-btn" title="Lưu">
           <FiBookmark size={22} />
         </button>
 
-        <button className="t-btn" onClick={() => setMuted(!muted)}>
+        {/* MUTE / UNMUTE */}
+        <button
+          className="t-btn"
+          onClick={() => {
+            setMuted((m) => {
+              const newMute = !m;
+              try {
+                if (videoRef.current) videoRef.current.muted = newMute;
+              } catch (e) {}
+              return newMute;
+            });
+          }}
+          title={muted ? "Bật âm thanh" : "Tắt âm thanh"}
+        >
           {muted ? <FiVolumeX size={22} /> : <FiVolume2 size={22} />}
         </button>
 
-        <button className="t-btn" onClick={() => videoRef.current?.requestFullscreen()}>
+        {/* FULLSCREEN */}
+        <button
+          className="t-btn"
+          onClick={() => videoRef.current?.requestFullscreen?.()}
+          title="Toàn màn hình"
+        >
           <IoExpandOutline size={22} />
         </button>
       </div>
