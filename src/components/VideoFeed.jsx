@@ -1,39 +1,44 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSwipeable } from "react-swipeable";
 import { useAuth } from "../context/AuthContext";
 import CommentPanel from "./CommentPanel";
 import TwitterVideoPlayer from "./TwitterVideoPlayer";
+import SearchPopup from "./SearchPopup";
 import { supabase } from "../supabaseClient";
-import "./VideoFeed.css";
+import "../styles/VideoFeed.css";
 
 export default function VideoFeed({ videos = [] }) {
   const { user } = useAuth();
 
-  // ------------------------------
-  // TAB STATE
-  // ------------------------------
-  const [tab, setTab] = useState("foryou"); // foryou | following | liked | search
-  const [list, setList] = useState(videos);
-  const [query, setQuery] = useState("");
-
+  const [tab, setTab] = useState("foryou");
+  const [list, setList] = useState([]);
   const [index, setIndex] = useState(0);
   const [currentVideo, setCurrentVideo] = useState(null);
-  const [showComments, setShowComments] = useState(false);
 
   const [likesCount, setLikesCount] = useState(0);
   const [commentsCount, setCommentsCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
 
-  // reset index mỗi lần đổi danh sách video
-  useEffect(() => {
-    setList(videos);
-  }, [videos]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchQueryRef = useRef("");
 
+  const [showComments, setShowComments] = useState(false);
+
+  // -----------------------------
+  // SAFETY FILTER
+  // -----------------------------
+  const filterValidVideos = (arr) =>
+    (arr || []).filter((v) => v && v.user_id && v.id);
+
+  // -----------------------------
+  // Initial
+  // -----------------------------
   useEffect(() => {
-    setIndex(0);
-    setCurrentVideo(list[0]);
-  }, [list]);
+    if (videos?.length > 0) {
+      setList(filterValidVideos(videos));
+    }
+  }, [videos]);
 
   useEffect(() => {
     setCurrentVideo(list[index]);
@@ -41,304 +46,297 @@ export default function VideoFeed({ videos = [] }) {
 
   useEffect(() => {
     if (currentVideo?.id) loadStats();
-    // eslint-disable-next-line
   }, [currentVideo, user]);
 
-  // -----------------------------------------
-  // LOAD FOLLOWING VIDEOS
-  // -----------------------------------------
-  const loadFollowing = async () => {
-    if (!user) {
-      alert("Bạn cần đăng nhập!");
-      return;
-    }
+  // Receive search popup event
+  useEffect(() => {
+    const handler = () => setSearchOpen(true);
+    window.addEventListener("openSearchPopup", handler);
+    return () => window.removeEventListener("openSearchPopup", handler);
+  }, []);
 
-    const { data, error } = await supabase
+  // -----------------------------
+  // FETCH FOR YOU
+  // -----------------------------
+  const fetchForYou = async () => {
+    const { data } = await supabase
       .from("videos")
-      .select(`
-        *,
-        profiles:profiles(id, username, avatar_url)
-      `)
-      .in(
-        "user_id",
-        supabase
-          .from("follows")
-          .select("following_id")
-          .eq("follower_id", user.id)
-      );
+      .select("*, profiles:profiles(id,username,avatar_url)")
+      .order("created_at", { ascending: false });
 
-    if (!error) {
-      setList(data || []);
-    }
+    setList(filterValidVideos(data));
+    setIndex(0);
   };
 
-  // -----------------------------------------
-  // LOAD LIKED VIDEOS
-  // -----------------------------------------
-  const loadLiked = async () => {
+  const fetchForYouOrUseList = async () => {
+    if (videos.length > 0) {
+      setList(filterValidVideos(videos));
+      setIndex(0);
+      return;
+    }
+    await fetchForYou();
+  };
+
+  // -----------------------------
+  // FETCH FOLLOWING
+  // -----------------------------
+  const fetchFollowing = async () => {
     if (!user) {
-      alert("Bạn cần đăng nhập!");
+      setList([]);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("likes")
-      .select("video_id");
+    const { data: f } = await supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", user.id);
 
-    if (error) return;
-
-    const ids = (data || []).map((x) => x.video_id);
+    const ids = (f || []).map((x) => x.following_id).filter(Boolean);
 
     if (ids.length === 0) {
       setList([]);
       return;
     }
 
-    const { data: vids } = await supabase
+    const { data } = await supabase
       .from("videos")
-      .select(`
-        *,
-        profiles:profiles(id, username, avatar_url)
-      `)
-      .in("id", ids);
+      .select("*, profiles:profiles(id,username,avatar_url)")
+      .in("user_id", ids)
+      .order("created_at", { ascending: false });
 
-    setList(vids || []);
+    setList(filterValidVideos(data));
+    setIndex(0);
   };
 
-  // -----------------------------------------
-  // SEARCH
-  // -----------------------------------------
-  const searchVideos = async () => {
-    if (!query.trim()) return;
+  // -----------------------------
+  // FETCH LIKED
+  // -----------------------------
+  const fetchLiked = async () => {
+    if (!user) {
+      setList([]);
+      return;
+    }
+
+    const { data: l } = await supabase
+      .from("likes")
+      .select("video_id")
+      .eq("user_id", user.id);
+
+    const ids = (l || []).map((x) => x.video_id).filter(Boolean);
+
+    if (ids.length === 0) {
+      setList([]);
+      return;
+    }
 
     const { data } = await supabase
       .from("videos")
-      .select(`
-        *,
-        profiles:profiles(id, username, avatar_url)
-      `)
-      .or(`title.ilike.%${query}%,category.ilike.%${query}%`);
+      .select("*, profiles:profiles(id,username,avatar_url)")
+      .in("id", ids)
+      .order("created_at", { ascending: false });
 
-    setList(data || []);
+    setList(filterValidVideos(data));
+    setIndex(0);
   };
 
-  // -----------------------------------------
-  // VIDEO STATS (LIKE, COMMENTS, FOLLOW)
-  // -----------------------------------------
-  const loadStats = async () => {
-    if (!currentVideo?.id) return;
-    const videoId = currentVideo.id;
+  // -----------------------------
+  // SEARCH
+  // -----------------------------
+  const doSearch = async (q) => {
+    if (!q.trim()) return;
+    const pattern = `%${q}%`;
 
-    try {
-      // likes
-      const { data: likesRows } = await supabase
+    const { data } = await supabase
+      .from("videos")
+      .select("*, profiles:profiles(id,username,avatar_url)")
+      .or(`title.ilike.${pattern},category.ilike.${pattern}`)
+      .order("created_at", { ascending: false });
+
+    setList(filterValidVideos(data));
+    setIndex(0);
+    setTab("foryou");
+  };
+
+  // -----------------------------
+  // LOAD STATS
+  // -----------------------------
+  const loadStats = async () => {
+    const vid = currentVideo.id;
+
+    const { data: likes } = await supabase
+      .from("likes")
+      .select("*")
+      .eq("video_id", vid);
+
+    const { data: cm } = await supabase
+      .from("comments")
+      .select("*")
+      .eq("video_id", vid);
+
+    setLikesCount(likes?.length || 0);
+    setCommentsCount(cm?.length || 0);
+
+    if (user) {
+      const { data: my } = await supabase
         .from("likes")
         .select("*")
-        .eq("video_id", videoId);
-      setLikesCount(likesRows?.length || 0);
+        .eq("video_id", vid)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      // comments
-      const { data: commentsRows } = await supabase
-        .from("comments")
+      setIsLiked(!!my);
+    } else setIsLiked(false);
+
+    if (user && currentVideo.user_id) {
+      const { data: fl } = await supabase
+        .from("follows")
         .select("*")
-        .eq("video_id", videoId);
-      setCommentsCount(commentsRows?.length || 0);
+        .eq("follower_id", user.id)
+        .eq("following_id", currentVideo.user_id)
+        .maybeSingle();
 
-      // đã like chưa?
-      if (user) {
-        const { data: myLike } = await supabase
-          .from("likes")
-          .select("*")
-          .eq("video_id", videoId)
-          .eq("user_id", user.id)
-          .maybeSingle();
-        setIsLiked(!!myLike);
-      } else {
-        setIsLiked(false);
-      }
-
-      // follow chưa?
-      if (user && currentVideo.user_id) {
-        const { data: f } = await supabase
-          .from("follows")
-          .select("*")
-          .eq("follower_id", user.id)
-          .eq("following_id", currentVideo.user_id)
-          .maybeSingle();
-        setIsFollowing(!!f);
-      } else {
-        setIsFollowing(false);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+      setIsFollowing(!!fl);
+    } else setIsFollowing(false);
   };
 
-  // -----------------------------------------
-  // LIKE / UNLIKE
-  // -----------------------------------------
-  const handleLike = async () => {
-    if (!user) return alert("Bạn cần đăng nhập!");
+  // -----------------------------
+  // LIKE / FOLLOW
+  // -----------------------------
+  const toggleLike = async () => {
+    if (!user) return alert("Bạn cần đăng nhập");
 
-    if (!isLiked) {
-      await supabase.from("likes").insert({
-        video_id: currentVideo.id,
-        user_id: user.id,
-      });
-      setLikesCount((v) => v + 1);
-      setIsLiked(true);
-    } else {
+    if (isLiked) {
       await supabase
         .from("likes")
         .delete()
         .eq("video_id", currentVideo.id)
         .eq("user_id", user.id);
 
-      setLikesCount((v) => Math.max(0, v - 1));
       setIsLiked(false);
+      setLikesCount((x) => Math.max(0, x - 1));
+    } else {
+      await supabase.from("likes").insert({
+        video_id: currentVideo.id,
+        user_id: user.id,
+      });
+
+      setIsLiked(true);
+      setLikesCount((x) => x + 1);
     }
   };
 
-  // FOLLOW / UNFOLLOW
-  const handleFollow = async () => {
-    if (!user) return alert("Bạn cần đăng nhập!");
+  const toggleFollow = async () => {
+    if (!user) return alert("Bạn cần đăng nhập");
 
-    const target = currentVideo.user_id;
-    if (!isFollowing) {
-      await supabase.from("follows").insert({
-        follower_id: user.id,
-        following_id: target,
-      });
-      setIsFollowing(true);
-    } else {
+    if (isFollowing) {
       await supabase
         .from("follows")
         .delete()
         .eq("follower_id", user.id)
-        .eq("following_id", target);
+        .eq("following_id", currentVideo.user_id);
+
       setIsFollowing(false);
+    } else {
+      await supabase.from("follows").insert({
+        follower_id: user.id,
+        following_id: currentVideo.user_id,
+      });
+
+      setIsFollowing(true);
     }
   };
 
-  // swipe
+  // -----------------------------
+  // SWIPE
+  // -----------------------------
   const handlers = useSwipeable({
-    onSwipedUp: () => index < list.length - 1 && setIndex(index + 1),
-    onSwipedDown: () => index > 0 && setIndex(index - 1),
+    onSwipedUp: () =>
+      index < list.length - 1 && setIndex(index + 1),
+    onSwipedDown: () =>
+      index > 0 && setIndex(index - 1),
     preventScrollOnSwipe: true,
     trackTouch: true,
   });
 
-  // -----------------------------------------
+  // -----------------------------
+  // TAB CHANGE
+  // -----------------------------
+  useEffect(() => {
+    if (tab === "foryou") fetchForYouOrUseList();
+    if (tab === "following") fetchFollowing();
+    if (tab === "liked") fetchLiked();
+  }, [tab]);
+
+  useEffect(() => {
+    fetchForYouOrUseList();
+  }, []);
+
+  // -----------------------------
   // RENDER
-  // -----------------------------------------
+  // -----------------------------
   return (
-    <div className="videofeed-wrapper" {...handlers}>
-
-      {/* ---------------------- */}
-      {/* TOP TABS LIKE TIKTOK */}
-      {/* ---------------------- */}
-      <div className="top-tabs">
-        <button
-          className={tab === "foryou" ? "tab-active" : "tab"}
-          onClick={() => {
-            setTab("foryou");
-            setList(videos);
-          }}
-        >
-          For You
-        </button>
-
-        <button
-          className={tab === "following" ? "tab-active" : "tab"}
-          onClick={() => {
-            setTab("following");
-            loadFollowing();
-          }}
-        >
-          Following
-        </button>
-
-        <button
-          className={tab === "liked" ? "tab-active" : "tab"}
-          onClick={() => {
-            setTab("liked");
-            loadLiked();
-          }}
-        >
-          Liked
-        </button>
-
-        <div className="search-box">
-          <input
-            className="search-input"
-            placeholder="Search..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchVideos()}
-          />
-        </div>
+    <div className="videofeed-root" {...handlers}>
+      <div className="overlay-tabs">
+        <div className={`otab ${tab === "following" ? "active" : ""}`} onClick={() => setTab("following")}>Following</div>
+        <div className={`otab ${tab === "foryou" ? "active" : ""}`} onClick={() => setTab("foryou")}>For You</div>
+        <div className={`otab ${tab === "liked" ? "active" : ""}`} onClick={() => setTab("liked")}>Liked</div>
       </div>
 
-      {/* ---------------------- */}
-      {/* MAIN VIDEO PLAYER */}
-      {/* ---------------------- */}
-      {currentVideo && (
-        <>
-          <TwitterVideoPlayer
-            video={currentVideo}
-            videoUrl={currentVideo.url}
-            autoPlayEnabled={true}
-            onOpenComments={() => {
-              if (!user) return alert("Bạn cần đăng nhập để bình luận!");
-              setShowComments(true);
-            }}
-            onLike={handleLike}
-            liked={isLiked}
-          />
+      <div className="videofeed-viewport">
+        {currentVideo ? (
+          <>
+            <TwitterVideoPlayer
+              video={currentVideo}
+              videoUrl={currentVideo.url}
+              autoPlayEnabled={true}
+              liked={isLiked}
+              onLike={toggleLike}
+              onOpenComments={() => setShowComments(true)}
+            />
 
-          <div className="video-info-box">
-            <div className="user-row">
-              <a
-                href={`/profile/${currentVideo.user_id}`}
-                style={{ display: "flex", alignItems: "center", gap: 10 }}
-              >
-                <img
-                  src={currentVideo.profiles?.avatar_url || "/default-avatar.png"}
-                  style={{ width: 40, height: 40, borderRadius: "50%" }}
-                />
-                <span>@{currentVideo.profiles?.username}</span>
-              </a>
+            <div className="info-overlay">
+              <div className="author-row">
+                <a href={`/profile/${currentVideo.user_id}`} className="author-link">
+                  <img src={currentVideo.profiles?.avatar_url || "/default-avatar.png"} className="author-avatar" />
+                  <div className="author-meta">
+                    <div className="author-name">@{currentVideo.profiles?.username}</div>
+                    <div className="video-cat">{currentVideo.category}</div>
+                  </div>
+                </a>
 
-              <button
-                className="follow-btn"
-                onClick={handleFollow}
-                style={{ background: isFollowing ? "#555" : "#ff0050" }}
-              >
-                {isFollowing ? "Đang Follow" : "Follow"}
-              </button>
+                <button className={`follow-action ${isFollowing ? "following" : ""}`} onClick={toggleFollow}>
+                  {isFollowing ? "Đang Follow" : "Follow"}
+                </button>
+              </div>
+
+              <div className="title-desc">
+                <div className="video-title">{currentVideo.title}</div>
+                <div className="video-desc">{currentVideo.description}</div>
+              </div>
+
+              <div className="bottom-stats">
+                <span className={`like-count ${isLiked ? "liked" : ""}`} onClick={toggleLike}>
+                  ❤️ {likesCount}
+                </span>
+                <span className="comment-count" onClick={() => setShowComments(true)}>
+                  💬 {commentsCount}
+                </span>
+              </div>
             </div>
+          </>
+        ) : (
+          <div className="empty-state">Không có video</div>
+        )}
+      </div>
 
-            <div className="video-title">{currentVideo.title}</div>
-            <div className="video-desc">
-              {currentVideo.description?.slice(0, 80)}
-            </div>
+      {showComments && currentVideo && <CommentPanel video={currentVideo} onClose={() => setShowComments(false)} />}
 
-            <div className="video-stats">
-              <span style={{ color: isLiked ? "red" : "white" }}>
-                ❤️ {likesCount}
-              </span>
-              <span style={{ marginLeft: 15 }}>💬 {commentsCount}</span>
-            </div>
-          </div>
-        </>
-      )}
-
-      {showComments && (
-        <CommentPanel
-          video={currentVideo}
-          onClose={() => setShowComments(false)}
-        />
-      )}
+      <SearchPopup
+        visible={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSearch={doSearch}
+        initial={searchQueryRef.current}
+      />
     </div>
   );
 }

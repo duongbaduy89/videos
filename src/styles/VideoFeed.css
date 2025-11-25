@@ -1,0 +1,124 @@
+/* VideoFeed TikTok-style overlay + popup search styles */
+
+/* root */
+.videofeed-root {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  background: black;
+  overflow: hidden;
+}
+
+/* overlay tabs (center top) */
+.overlay-tabs {
+  position: absolute;
+  top: 80px; /* overlay on video, below header */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 18px;
+  z-index: 40;
+  align-items: center;
+}
+
+.otab {
+  color: rgba(255,255,255,0.7);
+  padding: 8px 14px;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(6px);
+}
+
+.otab.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255,0,80,0.9), rgba(255,100,120,0.9));
+  box-shadow: 0 6px 18px rgba(255,0,80,0.12);
+}
+
+/* viewport */
+.videofeed-viewport {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* info overlay bottom-left-ish but above bottom nav */
+.info-overlay {
+  position: absolute;
+  left: 18px;
+  bottom: 110px;
+  z-index: 30;
+  max-width: 56%;
+  color: #fff;
+}
+
+/* author row */
+.author-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.author-link { display:flex; gap:10px; align-items:center; text-decoration:none; color:inherit; }
+.author-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.08); }
+.author-meta { display:flex; flex-direction:column; }
+.author-name { font-weight:700; }
+.video-cat { font-size:12px; color: rgba(255,255,255,0.75); }
+
+.right-actions { display:flex; align-items:center; gap:8px; }
+.follow-action { padding:6px 12px; border-radius:8px; border:none; cursor:pointer; background:#ff0050; color:#fff; font-weight:700; }
+.follow-action.following { background:#444; }
+
+/* title & desc */
+.title-desc { margin-top:10px; max-width: 100%; }
+.video-title { font-size:18px; font-weight:800; margin-bottom:6px; text-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+.video-desc { color: #ddd; font-size:14px; }
+
+/* stats */
+.bottom-stats { margin-top:12px; display:flex; gap:18px; align-items:center; font-weight:700; }
+.like-count { cursor:pointer; }
+.like-count.liked { color: #ff0050; }
+
+/* empty state */
+.empty-state { color:#ccc; font-size:16px; margin-top:160px; text-align:center; }
+
+/* Search modal (popup) */
+.search-modal-overlay {
+  position: fixed;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 200;
+}
+
+.search-modal {
+  width: 92%;
+  max-width: 720px;
+  background: #0f0f10;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  color: white;
+}
+
+.search-modal-head { display:flex; gap:10px; align-items:center; }
+.search-modal input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  color: white;
+  outline: none;
+}
+
+.search-modal .close-btn { background: none; border: none; color: #aaa; font-size:18px; cursor:pointer; }
+
+.search-modal-actions { display:flex; justify-content:flex-end; margin-top:12px; }
+.search-go { background: #ff0050; border:none; color:white; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:700; }
