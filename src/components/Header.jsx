@@ -1,25 +1,28 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabaseClient";
 import "./Header.css";
 
 export default function Header() {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [totalVideos, setTotalVideos] = useState(0);
 
-  // Load số lượng video Supabase
+  // Chỉ load count video khi ở trang / hoặc /upload
   useEffect(() => {
-    const loadCount = async () => {
-      const { count } = await supabase
-        .from("videos")
-        .select("*", { count: "exact", head: true });
-      setTotalVideos(count || 0);
-    };
-    loadCount();
-  }, []);
+    if (location.pathname === "/" || location.pathname === "/upload") {
+      const loadCount = async () => {
+        const { count } = await supabase
+          .from("videos")
+          .select("*", { count: "exact", head: true });
+        setTotalVideos(count || 0);
+      };
+      loadCount();
+    }
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -31,24 +34,27 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent("openSearchPopup", {}));
   };
 
+  // Nếu auth chưa load xong, render loading nhỏ
+  if (authLoading) {
+    return <div className="header-container">Loading...</div>;
+  }
+
+  const isLoggedIn = !!user;
+
   return (
     <div className="header-container">
       <Link to="/" className="header-logo">Video App</Link>
 
       <div className="header-right">
-
-        {/* Nếu chưa đăng nhập */}
-        {!user ? (
+        {!isLoggedIn ? (
           <>
             <Link className="header-btn" to="/login">Đăng nhập</Link>
             <Link className="header-btn" to="/signup">Đăng ký</Link>
+            <Link className="header-btn" to="/login">Upload</Link>
           </>
         ) : (
           <>
-            {/* 
-              ICON KÍNH LÚP – KHÔNG có box, không có nền
-              Badge nhỏ nằm góc trên phải
-            */}
+            {/* Icon kính lúp */}
             <div
               onClick={openSearch}
               style={{
@@ -73,7 +79,6 @@ export default function Header() {
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
 
-              {/* Badge tổng số video */}
               <span
                 style={{
                   position: "absolute",
@@ -91,7 +96,11 @@ export default function Header() {
               </span>
             </div>
 
-            <Link to={`/profile/${user.id}`} className="header-avatar-link">
+            {/* Avatar / Profile */}
+            <Link
+              to={user ? `/profile/${user.id}` : "/login"}
+              className="header-avatar-link"
+            >
               <img
                 src={profile?.avatar_url || "/default-avatar.png"}
                 alt="avatar"
@@ -104,7 +113,12 @@ export default function Header() {
               />
             </Link>
 
-            <Link className="header-btn" to="/upload">Upload</Link>
+            {/* Upload */}
+            <Link className="header-btn" to={user ? "/upload" : "/login"}>
+              Upload
+            </Link>
+
+            {/* Logout */}
             <button className="header-btn logout" onClick={handleLogout}>
               Logout
             </button>

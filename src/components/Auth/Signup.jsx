@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../supabaseClient"; // fix đường dẫn đúng
 import "./Auth.css";
 
 export default function Signup() {
@@ -18,6 +18,11 @@ export default function Signup() {
     if (!username.trim()) {
       return setError("Bạn phải nhập username!");
     }
+
+    if (!email || !password || !confirm) {
+      return setError("Vui lòng điền đủ thông tin!");
+    }
+
     if (password !== confirm) {
       return setError("Mật khẩu không khớp!");
     }
@@ -43,7 +48,7 @@ export default function Signup() {
     }
 
     alert("Đăng ký thành công! Hãy kiểm tra email để xác nhận.");
-    navigate("/login");
+    navigate("/login"); // chuyển về trang login
   };
 
   return (

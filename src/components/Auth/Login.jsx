@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../supabaseClient"; // fix đường dẫn đúng
 import "./Auth.css";
 
 export default function Login() {
@@ -13,7 +13,12 @@ export default function Login() {
   const handleLogin = async () => {
     setError("");
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    if (!email || !password) {
+      setError("Vui lòng nhập email và mật khẩu!");
+      return;
+    }
+
+    const { error: loginError, data } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -23,6 +28,7 @@ export default function Login() {
       return;
     }
 
+    // Sau khi login thành công, chuyển về trang chủ
     navigate("/");
   };
 
