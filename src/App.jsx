@@ -7,6 +7,7 @@ import Login from "./components/Auth/Login";
 import Signup from "./components/Auth/Signup";
 import Upload from "./pages/Upload";
 import Profile from "./pages/Profile";
+import NotificationsPage from "./pages/NotificationsPage";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Header />
         <Routes>
           <Route path="/" element={<VideoFeed />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/upload" element={<Upload />} />

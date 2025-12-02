@@ -26,6 +26,22 @@ export default function VideoFeed({ videos = [] }) {
 
   const [showComments, setShowComments] = useState(false);
 
+  // ------------------ Notification helper ------------------
+  const createNotification = async (type) => {
+    if (!currentVideo || !user) return;
+    if (currentVideo.user_id === user.id) return; // không gửi cho chính mình
+
+    await supabase.from("notifications").insert([
+      {
+        user_id: currentVideo.user_id,
+        sender_id: user.id,
+        video_id: currentVideo.id,
+        type,
+        read: false,
+      },
+    ]);
+  };
+
   // ----------------- Initialize -----------------
   useEffect(() => {
     if (videos?.length && list.length === 0) {
@@ -79,7 +95,6 @@ export default function VideoFeed({ videos = [] }) {
       setIndex(0);
       return;
     }
-    // Nếu list khác list cũ, reset index
     if (newList !== list) {
       setList(newList);
       setIndex(0);
@@ -87,7 +102,10 @@ export default function VideoFeed({ videos = [] }) {
   };
 
   const fetchForYou = async () => {
-    if (videos?.length) { updateList(videos); return; }
+    if (videos?.length) {
+      updateList(videos);
+      return;
+    }
     const { data, error } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
@@ -96,10 +114,19 @@ export default function VideoFeed({ videos = [] }) {
   };
 
   const fetchFollowing = async () => {
-    if (!user) { updateList([]); return; }
-    const { data: follows } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
-    const ids = (follows || []).map(x => x.following_id);
-    if (!ids.length) { updateList([]); return; }
+    if (!user) {
+      updateList([]);
+      return;
+    }
+    const { data: follows } = await supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", user.id);
+    const ids = (follows || []).map((x) => x.following_id);
+    if (!ids.length) {
+      updateList([]);
+      return;
+    }
     const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
@@ -109,10 +136,19 @@ export default function VideoFeed({ videos = [] }) {
   };
 
   const fetchLiked = async () => {
-    if (!user) { updateList([]); return; }
-    const { data: likes } = await supabase.from("likes").select("video_id").eq("user_id", user.id);
-    const ids = (likes || []).map(x => x.video_id);
-    if (!ids.length) { updateList([]); return; }
+    if (!user) {
+      updateList([]);
+      return;
+    }
+    const { data: likes } = await supabase
+      .from("likes")
+      .select("video_id")
+      .eq("user_id", user.id);
+    const ids = (likes || []).map((x) => x.video_id);
+    if (!ids.length) {
+      updateList([]);
+      return;
+    }
     const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
@@ -132,15 +168,34 @@ export default function VideoFeed({ videos = [] }) {
   const loadStats = async () => {
     if (!currentVideo?.id) return;
     const vid = currentVideo.id;
-    const { data: lk } = await supabase.from("likes").select("*").eq("video_id", vid);
+
+    const { data: lk } = await supabase
+      .from("likes")
+      .select("*")
+      .eq("video_id", vid);
     setLikesCount(lk?.length || 0);
-    const { data: cm } = await supabase.from("comments").select("*").eq("video_id", vid);
+
+    const { data: cm } = await supabase
+      .from("comments")
+      .select("*")
+      .eq("video_id", vid);
     setCommentsCount(cm?.length || 0);
 
     if (user) {
-      const { data: my } = await supabase.from("likes").select("*").eq("video_id", vid).eq("user_id", user.id).maybeSingle();
+      const { data: my } = await supabase
+        .from("likes")
+        .select("*")
+        .eq("video_id", vid)
+        .eq("user_id", user.id)
+        .maybeSingle();
       setIsLiked(!!my);
-      const { data: f } = await supabase.from("follows").select("*").eq("follower_id", user.id).eq("following_id", currentVideo.user_id).maybeSingle();
+
+      const { data: f } = await supabase
+        .from("follows")
+        .select("*")
+        .eq("follower_id", user.id)
+        .eq("following_id", currentVideo.user_id)
+        .maybeSingle();
       setIsFollowing(!!f);
     } else {
       setIsLiked(false);
@@ -150,22 +205,42 @@ export default function VideoFeed({ videos = [] }) {
 
   const toggleLike = async () => {
     if (!user) return alert("Bạn cần đăng nhập để like");
+
     if (!isLiked) {
-      await supabase.from("likes").insert({ video_id: currentVideo.id, user_id: user.id });
-      setLikesCount(x => x + 1); setIsLiked(true);
+      await supabase
+        .from("likes")
+        .insert({ video_id: currentVideo.id, user_id: user.id });
+
+      await createNotification("like");
+
+      setLikesCount((x) => x + 1);
+      setIsLiked(true);
     } else {
-      await supabase.from("likes").delete().eq("video_id", currentVideo.id).eq("user_id", user.id);
-      setLikesCount(x => Math.max(0, x - 1)); setIsLiked(false);
+      await supabase
+        .from("likes")
+        .delete()
+        .eq("video_id", currentVideo.id)
+        .eq("user_id", user.id);
+
+      setLikesCount((x) => Math.max(0, x - 1));
+      setIsLiked(false);
     }
   };
 
   const toggleFollow = async () => {
     if (!user) return alert("Bạn cần đăng nhập để follow");
+
     if (!isFollowing) {
-      await supabase.from("follows").insert({ follower_id: user.id, following_id: currentVideo.user_id });
+      await supabase
+        .from("follows")
+        .insert({ follower_id: user.id, following_id: currentVideo.user_id });
       setIsFollowing(true);
     } else {
-      await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", currentVideo.user_id);
+      await supabase
+        .from("follows")
+        .delete()
+        .eq("follower_id", user.id)
+        .eq("following_id", currentVideo.user_id);
       setIsFollowing(false);
     }
   };
@@ -173,15 +248,29 @@ export default function VideoFeed({ videos = [] }) {
   // ----------------- Render -----------------
   return (
     <div className="videofeed-root" {...handlers}>
-
       {/* Tabs overlay */}
       <div className="overlay-tabs">
-        <div className={`otab ${tab==="following"?"active":""}`} onClick={()=>setTab("following")}>Following</div>
-        <div className={`otab ${tab==="foryou"?"active":""}`} onClick={()=>setTab("foryou")}>For You</div>
-        <div className={`otab ${tab==="liked"?"active":""}`} onClick={()=>setTab("liked")}>Liked</div>
+        <div
+          className={`otab ${tab === "following" ? "active" : ""}`}
+          onClick={() => setTab("following")}
+        >
+          Following
+        </div>
+        <div
+          className={`otab ${tab === "foryou" ? "active" : ""}`}
+          onClick={() => setTab("foryou")}
+        >
+          For You
+        </div>
+        <div
+          className={`otab ${tab === "liked" ? "active" : ""}`}
+          onClick={() => setTab("liked")}
+        >
+          Liked
+        </div>
       </div>
 
-      {/* Video viewport */}
+      {/* Viewport */}
       <div className="videofeed-viewport">
         {currentVideo ? (
           <>
@@ -192,20 +281,33 @@ export default function VideoFeed({ videos = [] }) {
               autoPlayEnabled={true}
               liked={isLiked}
               onLike={toggleLike}
-              onOpenComments={()=>setShowComments(true)}
+              onOpenComments={() => setShowComments(true)}
             />
 
             <div className="info-overlay">
               <div className="author-row">
-                <a href={`/profile/${currentVideo.user_id}`} className="author-link">
-                  <img src={currentVideo.profiles?.avatar_url || "/default-avatar.png"} className="author-avatar"/>
+                <a
+                  href={`/profile/${currentVideo.user_id}`}
+                  className="author-link"
+                >
+                  <img
+                    src={
+                      currentVideo.profiles?.avatar_url || "/default-avatar.png"
+                    }
+                    className="author-avatar"
+                  />
                   <div className="author-meta">
-                    <div className="author-name">@{currentVideo.profiles?.username}</div>
+                    <div className="author-name">
+                      @{currentVideo.profiles?.username}
+                    </div>
                     <div className="video-cat">{currentVideo.category}</div>
                   </div>
                 </a>
-                <button className={`follow-action ${isFollowing?"following":""}`} onClick={toggleFollow}>
-                  {isFollowing?"Đang Follow":"Follow"}
+                <button
+                  className={`follow-action ${isFollowing ? "following" : ""}`}
+                  onClick={toggleFollow}
+                >
+                  {isFollowing ? "Đang Follow" : "Follow"}
                 </button>
               </div>
 
@@ -215,27 +317,49 @@ export default function VideoFeed({ videos = [] }) {
               </div>
 
               <div className="bottom-stats">
-                <span className={`like-count ${isLiked?"liked":""}`} onClick={toggleLike}>❤️ {likesCount}</span>
-                <span className="comment-count" onClick={()=>setShowComments(true)}>💬 {commentsCount}</span>
+                <span
+                  className={`like-count ${isLiked ? "liked" : ""}`}
+                  onClick={toggleLike}
+                >
+                  ❤️ {likesCount}
+                </span>
+                <span
+                  className="comment-count"
+                  onClick={() => setShowComments(true)}
+                >
+                  💬 {commentsCount}
+                </span>
               </div>
             </div>
           </>
-        ) : <div className="empty-state">Không có video để hiển thị</div>}
+        ) : (
+          <div className="empty-state">Không có video để hiển thị</div>
+        )}
       </div>
 
-      {showComments && currentVideo && <CommentPanel video={currentVideo} onClose={()=>setShowComments(false)} />}
+      {showComments && currentVideo && (
+        <CommentPanel
+          video={currentVideo}
+          onClose={() => setShowComments(false)}
+        />
+      )}
 
       <SearchPopup
         visible={searchOpen}
-        onClose={()=>setSearchOpen(false)}
-        onSearch={query => {
+        onClose={() => setSearchOpen(false)}
+        onSearch={(query) => {
           searchQueryRef.current = query;
           if (!query.trim()) return;
           const pattern = `%${query}%`;
-          supabase.from("videos").select("*, profiles:profiles(id,username,avatar_url)")
+          supabase
+            .from("videos")
+            .select("*, profiles:profiles(id,username,avatar_url)")
             .or(`title.ilike.${pattern},category.ilike.${pattern}`)
-            .order("created_at",{ascending:false})
-            .then(({data}) => { updateList(data); setTab("foryou"); });
+            .order("created_at", { ascending: false })
+            .then(({ data }) => {
+              updateList(data);
+              setTab("foryou");
+            });
         }}
         initial={searchQueryRef.current}
       />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabaseClient";
+import NotificationBell from "./NotificationBell";
 import "./Header.css";
 
 export default function Header() {
@@ -11,7 +12,6 @@ export default function Header() {
 
   const [totalVideos, setTotalVideos] = useState(0);
 
-  // Chỉ load count video khi ở trang / hoặc /upload
   useEffect(() => {
     if (location.pathname === "/" || location.pathname === "/upload") {
       const loadCount = async () => {
@@ -34,7 +34,6 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent("openSearchPopup", {}));
   };
 
-  // Nếu auth chưa load xong, render loading nhỏ
   if (authLoading) {
     return <div className="header-container">Loading...</div>;
   }
@@ -54,14 +53,14 @@ export default function Header() {
           </>
         ) : (
           <>
-            {/* Icon kính lúp */}
+            {/* Search icon */}
             <div
               onClick={openSearch}
               style={{
                 position: "relative",
                 cursor: "pointer",
                 display: "flex",
-                alignItems: "center"
+                alignItems: "center",
               }}
             >
               <svg
@@ -89,16 +88,19 @@ export default function Header() {
                   borderRadius: "10px",
                   fontSize: "10px",
                   fontWeight: "600",
-                  color: "white"
+                  color: "white",
                 }}
               >
                 {totalVideos}
               </span>
             </div>
 
-            {/* Avatar / Profile */}
+            {/* 🔔 Notifications */}
+            <NotificationBell />
+
+            {/* Avatar */}
             <Link
-              to={user ? `/profile/${user.id}` : "/login"}
+              to={`/profile/${user?.id}`}
               className="header-avatar-link"
             >
               <img
@@ -108,13 +110,13 @@ export default function Header() {
                   width: 36,
                   height: 36,
                   borderRadius: "50%",
-                  objectFit: "cover"
+                  objectFit: "cover",
                 }}
               />
             </Link>
 
             {/* Upload */}
-            <Link className="header-btn" to={user ? "/upload" : "/login"}>
+            <Link className="header-btn" to="/upload">
               Upload
             </Link>
 

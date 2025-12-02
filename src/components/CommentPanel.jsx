@@ -7,6 +7,7 @@ import {
   postComment as apiPostComment,
   deleteComment as apiDeleteComment,
 } from "../api/comments";
+import { supabase } from "../supabaseClient";
 import "../styles/commentPanel.css";
 
 function CommentItem({
@@ -94,10 +95,10 @@ function CommentItem({
 export default function CommentPanel({ video, onClose }) {
   const { user } = useAuth();
   const [commentsTree, setCommentsTree] = useState([]);
-  const [flatComments, setFlatComments] = useState([]); // optional
+  const [flatComments, setFlatComments] = useState([]);
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState(null); // id của comment đang reply
+  const [replyingTo, setReplyingTo] = useState(null);
   const [replyPlaceholder, setReplyPlaceholder] = useState("");
 
   useEffect(() => {
@@ -112,7 +113,6 @@ export default function CommentPanel({ video, onClose }) {
     setCommentsTree(tree);
   };
 
-  // xây cây nested từ flat array (parent_id)
   const buildTree = (list) => {
     const map = {};
     list.forEach((c) => (map[c.id] = { ...c, children: [] }));
@@ -121,12 +121,11 @@ export default function CommentPanel({ video, onClose }) {
       if (c.parent_id) {
         const parent = map[c.parent_id];
         if (parent) parent.children.push(map[c.id]);
-        else roots.push(map[c.id]); // orphan, push as root
+        else roots.push(map[c.id]);
       } else {
         roots.push(map[c.id]);
       }
     });
-    // sort children by created_at asc (older first)
     const sortRec = (nodes) => {
       nodes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       nodes.forEach((n) => sortRec(n.children));
@@ -142,15 +141,30 @@ export default function CommentPanel({ video, onClose }) {
     }
     const content = (parentId ? textForReply() : text).trim();
     if (!content) return;
+
     try {
       setPosting(true);
-      const newC = await apiPostComment({
+
+      const newComment = await apiPostComment({
         user_id: user.id,
         video_id: video.id,
         content,
         parent_id: parentId || null,
       });
-      // reload
+
+      // 🔔 TẠO THÔNG BÁO COMMENT
+      if (video.user_id !== user.id) {
+        await supabase.from("notifications").insert([
+          {
+            user_id: video.user_id,
+            sender_id: user.id,
+            video_id: video.id,
+            type: "comment",
+            read: false,
+          },
+        ]);
+      }
+
       await load();
       setText("");
       setReplyingTo(null);
@@ -163,7 +177,6 @@ export default function CommentPanel({ video, onClose }) {
   const onReply = (commentId, username) => {
     setReplyingTo(commentId);
     setReplyPlaceholder(username ? `@${username} ` : "");
-    // focus input after set
     setTimeout(() => {
       const el = document.querySelector(".comment-input");
       if (el) el.focus();
@@ -171,13 +184,11 @@ export default function CommentPanel({ video, onClose }) {
   };
 
   const textForReply = () => {
-    // if the input contains @username prefix, keep it and the rest
     return text;
   };
 
   const handleDelete = async (commentId) => {
     if (!user) return;
-    // Only allow delete if comment belongs to user
     const comment = flatComments.find((c) => c.id === commentId);
     if (!comment) return;
     if (comment.user_id !== user.id) {
@@ -201,7 +212,9 @@ export default function CommentPanel({ video, onClose }) {
 
         <div className="comment-list">
           {commentsTree.length === 0 && (
-            <div className="empty">Chưa có bình luận nào — trở thành người đầu tiên nhé!</div>
+            <div className="empty">
+              Chưa có bình luận nào — trở thành người đầu tiên nhé!
+            </div>
           )}
           {commentsTree.map((c) => (
             <CommentItem
@@ -219,12 +232,15 @@ export default function CommentPanel({ video, onClose }) {
         <div className="comment-input-row">
           <input
             className="comment-input"
-            placeholder={replyingTo ? replyPlaceholder || "Nhập reply..." : "Nhập bình luận..."}
+            placeholder={
+              replyingTo
+                ? replyPlaceholder || "Nhập reply..."
+                : "Nhập bình luận..."
+            }
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || !e.shiftKey)) {
-                // Enter to send
                 e.preventDefault();
                 sendComment(replyingTo);
               }
