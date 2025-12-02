@@ -9,18 +9,36 @@ import Upload from "./pages/Upload";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/NotificationsPage";
 
+// === NEW PAGES FOR FRIENDS & MESSAGING ===
+import FriendsPage from "./pages/FriendsPage";
+import ChatRoom from "./pages/ChatRoom";
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Header />
+
         <Routes>
+          {/* HOME FEED */}
           <Route path="/" element={<VideoFeed />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
+
+          {/* AUTH */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/upload" element={<Upload />} />
+
+          {/* PROFILE & UPLOAD */}
           <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/upload" element={<Upload />} />
+
+          {/* NOTIFICATIONS */}
+          <Route path="/notifications" element={<NotificationsPage />} />
+
+          {/* === FRIENDS SYSTEM === */}
+          <Route path="/friends" element={<FriendsPage />} />
+
+          {/* === MESSAGING 1–1 === */}
+          <Route path="/chat/:id" element={<ChatRoom />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
