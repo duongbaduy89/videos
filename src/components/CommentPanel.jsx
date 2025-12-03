@@ -1,4 +1,3 @@
-// src/components/CommentPanel.jsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -10,14 +9,7 @@ import {
 import { supabase } from "../supabaseClient";
 import "../styles/commentPanel.css";
 
-function CommentItem({
-  c,
-  depth = 0,
-  onReply,
-  onDelete,
-  replyingTo,
-  setReplyingTo,
-}) {
+function CommentItem({ c, depth = 0, onReply, onDelete, replyingTo, setReplyingTo }) {
   const [showReplies, setShowReplies] = useState(true);
 
   return (
@@ -157,10 +149,10 @@ export default function CommentPanel({ video, onClose }) {
         await supabase.from("notifications").insert([
           {
             user_id: video.user_id,
-            sender_id: user.id,
+            from_user_id: user.id,
             video_id: video.id,
             type: "comment",
-            read: false,
+            is_read: false,
           },
         ]);
       }
@@ -183,9 +175,7 @@ export default function CommentPanel({ video, onClose }) {
     }, 50);
   };
 
-  const textForReply = () => {
-    return text;
-  };
+  const textForReply = () => text;
 
   const handleDelete = async (commentId) => {
     if (!user) return;
@@ -233,9 +223,7 @@ export default function CommentPanel({ video, onClose }) {
           <input
             className="comment-input"
             placeholder={
-              replyingTo
-                ? replyPlaceholder || "Nhập reply..."
-                : "Nhập bình luận..."
+              replyingTo ? replyPlaceholder || "Nhập reply..." : "Nhập bình luận..."
             }
             value={text}
             onChange={(e) => setText(e.target.value)}

@@ -1,4 +1,3 @@
-// src/components/VideoFeed.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeable } from "react-swipeable";
 import { useAuth } from "../context/AuthContext";
@@ -34,10 +33,10 @@ export default function VideoFeed({ videos = [] }) {
     await supabase.from("notifications").insert([
       {
         user_id: currentVideo.user_id,
-        sender_id: user.id,
+        from_user_id: user.id, // **cập nhật theo bảng mới**
         video_id: currentVideo.id,
         type,
-        read: false,
+        is_read: false,
       },
     ]);
   };

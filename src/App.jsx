@@ -1,22 +1,32 @@
+// App.jsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 
+// === COMPONENTS ===
 import Header from "./components/Header";
 import VideoFeed from "./components/VideoFeed";
+
+// === AUTH ===
 import Login from "./components/Auth/Login";
 import Signup from "./components/Auth/Signup";
+
+// === PAGES ===
 import Upload from "./pages/Upload";
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/NotificationsPage";
 
-// === NEW PAGES FOR FRIENDS & MESSAGING ===
-import FriendsPage from "./pages/FriendsPage";
-import ChatRoom from "./pages/ChatRoom";
+// === FRIEND SYSTEM ===
+import FriendsPage from "./pages/FriendsPage";             // Danh sách bạn bè
+import FriendRequestsPage from "./pages/FriendRequestsPage"; // Lời mời kết bạn
+
+// === MESSAGING ===
+import ChatRoom from "./pages/ChatRoom"; // Chat realtime
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        {/* HEADER xuất hiện mọi trang */}
         <Header />
 
         <Routes>
@@ -34,10 +44,11 @@ export default function App() {
           {/* NOTIFICATIONS */}
           <Route path="/notifications" element={<NotificationsPage />} />
 
-          {/* === FRIENDS SYSTEM === */}
+          {/* FRIENDS SYSTEM */}
           <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/friend-requests" element={<FriendRequestsPage />} />
 
-          {/* === MESSAGING 1–1 === */}
+          {/* MESSAGING 1–1 */}
           <Route path="/chat/:id" element={<ChatRoom />} />
         </Routes>
       </BrowserRouter>
