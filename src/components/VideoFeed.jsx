@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+// src/components/VideoFeed.jsx
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSwipeable } from "react-swipeable";
+import { motion, useAnimation } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import CommentPanel from "./CommentPanel";
 import TwitterVideoPlayer from "./TwitterVideoPlayer";
@@ -25,6 +27,12 @@ export default function VideoFeed({ videos = [] }) {
 
   const [showComments, setShowComments] = useState(false);
 
+  // refs & animation controls
+  const containerRef = useRef(null);
+  const yControls = useAnimation();
+  const isAnimatingRef = useRef(false); // to avoid double transitions
+  const lastWheelRef = useRef(0);
+
   // ------------------ Notification helper ------------------
   const createNotification = async (type) => {
     if (!currentVideo || !user) return;
@@ -33,7 +41,7 @@ export default function VideoFeed({ videos = [] }) {
     await supabase.from("notifications").insert([
       {
         user_id: currentVideo.user_id,
-        from_user_id: user.id, // **cập nhật theo bảng mới**
+        from_user_id: user.id,
         video_id: currentVideo.id,
         type,
         is_read: false,
@@ -63,7 +71,8 @@ export default function VideoFeed({ videos = [] }) {
     return () => window.removeEventListener("openSearchPopup", handler);
   }, []);
 
-  // ----------------- Swipe handlers -----------------
+  // ----------------- Swipe handlers (legacy) -----------------
+  // keep them so existing behavior (random next/prev) stays if you used these events elsewhere
   const handlers = useSwipeable({
     onSwipedUp: () => {
       if (list.length > 1) {
@@ -71,7 +80,7 @@ export default function VideoFeed({ videos = [] }) {
         do {
           nextIndex = Math.floor(Math.random() * list.length);
         } while (nextIndex === index);
-        setIndex(nextIndex);
+        safeSetIndex(nextIndex);
       }
     },
     onSwipedDown: () => {
@@ -80,20 +89,116 @@ export default function VideoFeed({ videos = [] }) {
         do {
           prevIndex = Math.floor(Math.random() * list.length);
         } while (prevIndex === index);
-        setIndex(prevIndex);
+        safeSetIndex(prevIndex);
       }
     },
     preventScrollOnSwipe: true,
     trackTouch: true,
   });
 
-  // ----------------- Fetch helpers -----------------
+  // ----------------- Safe index setter -----------------
+  // Prevent out-of-range and avoid rapid double changes
+  const safeSetIndex = useCallback(
+    (newIndex) => {
+      if (!Array.isArray(list) || list.length === 0) return;
+      const normalized = ((newIndex % list.length) + list.length) % list.length;
+      if (normalized === index) return;
+      setIndex(normalized);
+    },
+    [index, list]
+  );
+
+  // ----------------- Wheel handler (throttled) -----------------
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e) => {
+      const now = Date.now();
+      // throttle: 250ms
+      if (now - lastWheelRef.current < 250) return;
+      lastWheelRef.current = now;
+
+      // Normalize wheel delta (some devices invert sign)
+      const delta = e.deltaY || e.wheelDelta || -e.detail;
+      if (Math.abs(delta) < 2) return;
+
+      if (delta > 0) {
+        // scroll down -> next
+        triggerTransition("next");
+      } else {
+        // scroll up -> prev
+        triggerTransition("prev");
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: true });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [index, list]);
+
+  // ----------------- Transition logic used by drag & wheel -----------------
+  // direction: "next" or "prev"
+  const triggerTransition = useCallback(
+    async (direction) => {
+      if (!list || list.length <= 1) return;
+      if (isAnimatingRef.current) return;
+      isAnimatingRef.current = true;
+
+      const height = containerRef.current?.clientHeight || window.innerHeight;
+      const exitY = direction === "next" ? -height - 50 : height + 50;
+
+      // animate current out
+      await yControls.start({ y: exitY, transition: { type: "spring", stiffness: 300, damping: 30 } });
+
+      // update index
+      setIndex((prev) => {
+        const next =
+          direction === "next" ? (prev + 1) % list.length : (prev - 1 + list.length) % list.length;
+        return next;
+      });
+
+      // reset position immediately (without visible jump) before animating in
+      await yControls.set({ y: direction === "next" ? height + 50 : -height - 50 });
+
+      // animate in
+      await yControls.start({ y: 0, transition: { type: "spring", stiffness: 300, damping: 30 } });
+
+      isAnimatingRef.current = false;
+    },
+    [list, yControls]
+  );
+
+  // ----------------- Drag handlers (framer-motion) -----------------
+  const onDragEnd = async (event, info) => {
+    if (isAnimatingRef.current) return;
+
+    const offsetY = info.offset.y;
+    const velocityY = info.velocity.y;
+
+    // threshold / velocity rules to decide transition
+    const THRESHOLD = 140; // px
+    const VEL_THRESHOLD = 800; // px/s
+
+    if (offsetY < -THRESHOLD || velocityY < -VEL_THRESHOLD) {
+      // user dragged up -> next
+      await triggerTransition("next");
+    } else if (offsetY > THRESHOLD || velocityY > VEL_THRESHOLD) {
+      // user dragged down -> prev
+      await triggerTransition("prev");
+    } else {
+      // not enough -> snap back
+      await yControls.start({ y: 0, transition: { type: "spring", stiffness: 400, damping: 40 } });
+    }
+  };
+
+  // ----------------- Fetch helpers (unchanged) -----------------
   const updateList = (newList) => {
     if (!newList?.length) {
       setList([]);
       setIndex(0);
       return;
     }
+    // shallow compare by length and first id to avoid unnecessary reset
     if (newList !== list) {
       setList(newList);
       setIndex(0);
@@ -163,7 +268,7 @@ export default function VideoFeed({ videos = [] }) {
     if (tab === "liked") fetchLiked();
   }, [tab, user]);
 
-  // ----------------- Stats -----------------
+  // ----------------- Stats (unchanged) -----------------
   const loadStats = async () => {
     if (!currentVideo?.id) return;
     const vid = currentVideo.id;
@@ -244,9 +349,17 @@ export default function VideoFeed({ videos = [] }) {
     }
   };
 
+  // Whenever index changes, ensure animation position reset if needed
+  useEffect(() => {
+    // reset y to 0 for new video (avoid leftover values)
+    yControls.set({ y: 0 });
+    // ensure animation lock is false (in case)
+    isAnimatingRef.current = false;
+  }, [index, yControls]);
+
   // ----------------- Render -----------------
   return (
-    <div className="videofeed-root" {...handlers}>
+    <div className="videofeed-root" {...handlers} ref={containerRef}>
       {/* Tabs overlay */}
       <div className="overlay-tabs">
         <div
@@ -273,15 +386,40 @@ export default function VideoFeed({ videos = [] }) {
       <div className="videofeed-viewport">
         {currentVideo ? (
           <>
-            <TwitterVideoPlayer
+            {/* motion wrapper that handles drag and snap */}
+            <motion.div
               key={currentVideo.id}
-              video={currentVideo}
-              videoUrl={currentVideo.url}
-              autoPlayEnabled={true}
-              liked={isLiked}
-              onLike={toggleLike}
-              onOpenComments={() => setShowComments(true)}
-            />
+              className="motion-video-wrapper"
+              style={{
+                height: "100%",
+                width: "100%",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.16}
+              onDragEnd={onDragEnd}
+              animate={yControls}
+              // allow both touch and mouse dragging
+              whileTap={{ cursor: "grabbing" }}
+            >
+              <TwitterVideoPlayer
+                key={currentVideo.id}
+                video={currentVideo}
+                videoUrl={currentVideo.url}
+                autoPlayEnabled={true}
+                liked={isLiked}
+                onLike={toggleLike}
+                onOpenComments={() => setShowComments(true)}
+              />
+            </motion.div>
 
             <div className="info-overlay">
               <div className="author-row">
@@ -294,6 +432,7 @@ export default function VideoFeed({ videos = [] }) {
                       currentVideo.profiles?.avatar_url || "/default-avatar.png"
                     }
                     className="author-avatar"
+                    alt="avatar"
                   />
                   <div className="author-meta">
                     <div className="author-name">
