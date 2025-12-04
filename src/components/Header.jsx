@@ -42,7 +42,7 @@ export default function Header() {
 
   return (
     <div className="header-container">
-      <Link to="/" className="header-logo">Video App</Link>
+      <Link to="/" className="header-logo">VIDSXXX</Link>
 
       <div className="header-right">
         {!isLoggedIn ? (

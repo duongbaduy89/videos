@@ -29,16 +29,16 @@ export default function VideoFeed({ videos = [] }) {
 
   // refs & animation controls
   const containerRef = useRef(null);
-  const yControls = useAnimation(); // controls for current video (y + optional opacity)
-  const nextControls = useAnimation(); // controls for next video (y + opacity + scale)
+  const yControls = useAnimation(); // current video controls
+  const nextControls = useAnimation(); // next video controls
   const isAnimatingRef = useRef(false);
   const lastWheelRef = useRef(0);
-  const nextRef = useRef(null); // DOM ref to toggle CSS class for additional styles
+  const nextRef = useRef(null);
 
   // ------------------ Notification helper ------------------
   const createNotification = async (type) => {
     if (!currentVideo || !user) return;
-    if (currentVideo.user_id === user.id) return; // don't notify yourself
+    if (currentVideo.user_id === user.id) return;
 
     await supabase.from("notifications").insert([
       {
@@ -73,7 +73,7 @@ export default function VideoFeed({ videos = [] }) {
     return () => window.removeEventListener("openSearchPopup", handler);
   }, []);
 
-  // ----------------- Legacy swipe handlers (keep) -----------------
+  // ----------------- Legacy swipe handlers -----------------
   const handlers = useSwipeable({
     onSwipedUp: () => {
       if (list.length > 1) {
@@ -115,27 +115,21 @@ export default function VideoFeed({ videos = [] }) {
 
     const onWheel = (e) => {
       const now = Date.now();
-      // throttle: 250ms
       if (now - lastWheelRef.current < 250) return;
       lastWheelRef.current = now;
 
       const delta = e.deltaY || e.wheelDelta || -e.detail;
       if (Math.abs(delta) < 2) return;
 
-      if (delta > 0) {
-        // scroll down -> next
-        triggerTransition("next");
-      } else {
-        // scroll up -> prev
-        triggerTransition("prev");
-      }
+      if (delta > 0) triggerTransition("next");
+      else triggerTransition("prev");
     };
 
     el.addEventListener("wheel", onWheel, { passive: true });
     return () => el.removeEventListener("wheel", onWheel);
   }, [index, list]);
 
-  // ----------------- Transition logic used by drag & wheel -----------------
+  // ----------------- Transition logic -----------------
   const triggerTransition = useCallback(
     async (direction) => {
       if (!list || list.length <= 1) return;
@@ -146,96 +140,104 @@ export default function VideoFeed({ videos = [] }) {
       const exitY = direction === "next" ? -height - 50 : height + 50;
 
       // animate current out
-      await yControls.start({ y: exitY, opacity: 0.8, transition: { type: "spring", stiffness: 300, damping: 30 } });
+      await yControls.start({
+        y: exitY,
+        opacity: 0.8,
+        transition: { type: "spring", stiffness: 300, damping: 30 },
+      });
 
       // update index
       setIndex((prev) => {
-        const next =
-          direction === "next" ? (prev + 1) % list.length : (prev - 1 + list.length) % list.length;
-        return next;
+        return direction === "next"
+          ? (prev + 1) % list.length
+          : (prev - 1 + list.length) % list.length;
       });
 
-      // reset position immediately (without visible jump) before animating in
-      await yControls.set({ y: direction === "next" ? height + 50 : -height - 50, opacity: 1 });
+      // reset current position
+      await yControls.set({
+        y: direction === "next" ? height + 50 : -height - 50,
+        opacity: 1,
+      });
 
-      // reset preview (next) to hidden under
+      // reset preview
       await nextControls.set({ y: "100%", opacity: 0, scale: 0.95 });
 
       // animate in
-      await yControls.start({ y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } });
+      await yControls.start({
+        y: 0,
+        opacity: 1,
+        transition: { type: "spring", stiffness: 300, damping: 30 },
+      });
 
-      // clean DOM class
       nextRef.current?.classList.remove("revealed");
-
       isAnimatingRef.current = false;
     },
     [list, yControls, nextControls]
   );
 
-  // ----------------- Advanced onDrag (partial reveal + fade + scale + brightness) -----------------
+  // ----------------- FIXED onDrag (FULL SYNC) -----------------
   const onDrag = (event, info) => {
     const offsetY = info.offset.y;
     const height = containerRef.current?.clientHeight || window.innerHeight;
-    const progress = Math.min(Math.abs(offsetY) / height, 1); // 0..1
+    const progress = Math.min(Math.abs(offsetY) / height, 1);
 
-    // update visual progress: next video opacity & scale, current opacity
-    // next: opacity 0.4 -> 1.0, scale 0.95 -> 1.0
     const nextOpacityVal = 0.4 + progress * 0.6;
     const nextScaleVal = 0.95 + progress * 0.05;
-    const currentOpacityVal = 1 - progress * 0.4; // 1 -> 0.6
+    const currentOpacityVal = 1 - progress * 0.4;
 
-    // apply values
-    nextControls.set({ opacity: nextOpacityVal, scale: nextScaleVal });
-    yControls.set({ opacity: currentOpacityVal });
+    // current video follows finger exactly
+    yControls.set({
+      y: offsetY,
+      opacity: currentOpacityVal,
+    });
 
-    // reveal next when dragging up
-    if (offsetY < 0 && list.length > 1) {
-      const reveal = Math.min(Math.abs(offsetY), height);
-      // position next: start at y = height (hidden), move to height - reveal
-      nextControls.set({ y: height - reveal, opacity: nextOpacityVal, scale: nextScaleVal });
-      if (progress > 0.08) nextRef.current?.classList.add("revealed");
-      else nextRef.current?.classList.remove("revealed");
-    }
+    // next video follows exactly (TikTok style)
+    nextControls.set({
+      y: height + offsetY,
+      opacity: nextOpacityVal,
+      scale: nextScaleVal,
+    });
 
-    // dragging down: small preview for previous (we don't render prev player to keep it simple)
-    if (offsetY > 0 && list.length > 1) {
-      const reveal = Math.min(offsetY, height);
-      // push next (which is actually the next) down so UX doesn't look broken when dragging down
-      nextControls.set({ y: -height + reveal, opacity: Math.max(0, 0.2 + progress * 0.8), scale: nextScaleVal });
-      if (progress > 0.08) nextRef.current?.classList.add("revealed");
-      else nextRef.current?.classList.remove("revealed");
-    }
+    if (offsetY < -40) nextRef.current?.classList.add("revealed");
+    else nextRef.current?.classList.remove("revealed");
   };
 
-  // ----------------- DragEnd: decide transition or snap back -----------------
+  // ----------------- DragEnd -----------------
   const onDragEnd = async (event, info) => {
     if (isAnimatingRef.current) return;
 
     const offsetY = info.offset.y;
     const velocityY = info.velocity.y;
+    const height = containerRef.current?.clientHeight || window.innerHeight;
 
-    const THRESHOLD = 140; // px
-    const VEL_THRESHOLD = 800; // px/s
+    const THRESHOLD = 140;
+    const VEL_THRESHOLD = 800;
 
     if (offsetY < -THRESHOLD || velocityY < -VEL_THRESHOLD) {
-      // user dragged up -> next
       await triggerTransition("next");
-    } else if (offsetY > THRESHOLD || velocityY > VEL_THRESHOLD) {
-      // user dragged down -> prev
-      await triggerTransition("prev");
-    } else {
-      // not enough -> snap back: current to y:0 and reset preview
-      await yControls.start({ y: 0, opacity: 1, transition: { type: "spring", stiffness: 400, damping: 40 } });
-
-      await nextControls.start({
-        y: "100%",
-        opacity: 0,
-        scale: 0.95,
-        transition: { type: "spring", stiffness: 300, damping: 30 },
-      });
-
-      nextRef.current?.classList.remove("revealed");
+      return;
     }
+
+    if (offsetY > THRESHOLD || velocityY > VEL_THRESHOLD) {
+      await triggerTransition("prev");
+      return;
+    }
+
+    // SNAP BACK (fixed)
+    await yControls.start({
+      y: 0,
+      opacity: 1,
+      transition: { type: "spring", stiffness: 400, damping: 40 },
+    });
+
+    await nextControls.start({
+      y: height,
+      opacity: 0,
+      scale: 0.95,
+      transition: { type: "spring", stiffness: 300, damping: 30 },
+    });
+
+    nextRef.current?.classList.remove("revealed");
   };
 
   // ----------------- Fetch helpers (unchanged) -----------------
@@ -245,7 +247,6 @@ export default function VideoFeed({ videos = [] }) {
       setIndex(0);
       return;
     }
-    // shallow compare by ref
     if (newList !== list) {
       setList(newList);
       setIndex(0);
@@ -257,11 +258,11 @@ export default function VideoFeed({ videos = [] }) {
       updateList(videos);
       return;
     }
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
       .order("created_at", { ascending: false });
-    if (!error) updateList(data);
+    updateList(data);
   };
 
   const fetchFollowing = async () => {
@@ -273,16 +274,19 @@ export default function VideoFeed({ videos = [] }) {
       .from("follows")
       .select("following_id")
       .eq("follower_id", user.id);
-    const ids = (follows || []).map((x) => x.following_id);
+
+    const ids = follows?.map((x) => x.following_id) || [];
     if (!ids.length) {
       updateList([]);
       return;
     }
+
     const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
       .in("user_id", ids)
       .order("created_at", { ascending: false });
+
     updateList(data);
   };
 
@@ -295,16 +299,19 @@ export default function VideoFeed({ videos = [] }) {
       .from("likes")
       .select("video_id")
       .eq("user_id", user.id);
-    const ids = (likes || []).map((x) => x.video_id);
+
+    const ids = likes?.map((x) => x.video_id) || [];
     if (!ids.length) {
       updateList([]);
       return;
     }
+
     const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
       .in("id", ids)
       .order("created_at", { ascending: false });
+
     updateList(data);
   };
 
@@ -313,10 +320,9 @@ export default function VideoFeed({ videos = [] }) {
     if (tab === "foryou") fetchForYou();
     if (tab === "following") fetchFollowing();
     if (tab === "liked") fetchLiked();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, user]);
 
-  // ----------------- Stats (unchanged) -----------------
+  // ----------------- Stats -----------------
   const loadStats = async () => {
     if (!currentVideo?.id) return;
     const vid = currentVideo.id;
@@ -325,12 +331,14 @@ export default function VideoFeed({ videos = [] }) {
       .from("likes")
       .select("*")
       .eq("video_id", vid);
+
     setLikesCount(lk?.length || 0);
 
     const { data: cm } = await supabase
       .from("comments")
       .select("*")
       .eq("video_id", vid);
+
     setCommentsCount(cm?.length || 0);
 
     if (user) {
@@ -340,6 +348,7 @@ export default function VideoFeed({ videos = [] }) {
         .eq("video_id", vid)
         .eq("user_id", user.id)
         .maybeSingle();
+
       setIsLiked(!!my);
 
       const { data: f } = await supabase
@@ -348,6 +357,7 @@ export default function VideoFeed({ videos = [] }) {
         .eq("follower_id", user.id)
         .eq("following_id", currentVideo.user_id)
         .maybeSingle();
+
       setIsFollowing(!!f);
     } else {
       setIsLiked(false);
@@ -385,7 +395,10 @@ export default function VideoFeed({ videos = [] }) {
     if (!isFollowing) {
       await supabase
         .from("follows")
-        .insert({ follower_id: user.id, following_id: currentVideo.user_id });
+        .insert({
+          follower_id: user.id,
+          following_id: currentVideo.user_id,
+        });
       setIsFollowing(true);
     } else {
       await supabase
@@ -393,23 +406,24 @@ export default function VideoFeed({ videos = [] }) {
         .delete()
         .eq("follower_id", user.id)
         .eq("following_id", currentVideo.user_id);
+
       setIsFollowing(false);
     }
   };
 
-  // Whenever index changes, reset animations / positions
+  // reset animations when index changes
   useEffect(() => {
+    const height = containerRef.current?.clientHeight || window.innerHeight;
     yControls.set({ y: 0, opacity: 1 });
-    nextControls.set({ y: "100%", opacity: 0, scale: 0.95 });
+    nextControls.set({ y: height, opacity: 0, scale: 0.95 });
     nextRef.current?.classList.remove("revealed");
     isAnimatingRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
   // ----------------- Render -----------------
   return (
     <div className="videofeed-root" {...handlers} ref={containerRef}>
-      {/* Tabs overlay */}
+      {/* Tabs */}
       <div className="overlay-tabs">
         <div
           className={`otab ${tab === "following" ? "active" : ""}`}
@@ -435,7 +449,7 @@ export default function VideoFeed({ videos = [] }) {
       <div className="videofeed-viewport">
         {currentVideo ? (
           <>
-            {/* NEXT VIDEO (underneath) - preview only for "next" */}
+            {/* NEXT VIDEO */}
             {list.length > 1 && (
               <motion.div
                 key={"next-" + index}
@@ -450,25 +464,24 @@ export default function VideoFeed({ videos = [] }) {
                   right: 0,
                   bottom: 0,
                   zIndex: 0,
-                  // note: we leave visual styling to CSS file; controls change opacity/scale/y
                 }}
               >
                 <TwitterVideoPlayer
                   video={list[(index + 1) % list.length]}
                   videoUrl={list[(index + 1) % list.length].url}
-                  autoPlayEnabled={false} // don't autoplay preview to save resources
+                  autoPlayEnabled={false}
                 />
               </motion.div>
             )}
 
-            {/* CURRENT VIDEO (on top) */}
+            {/* CURRENT VIDEO */}
             <motion.div
               key={currentVideo.id}
               className="motion-video-wrapper"
               drag="y"
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.16}
-              dragTransition={{ power: 0.2, timeConstant: 200 }} // inertia-like feel
+              dragTransition={{ power: 0.2, timeConstant: 200 }}
               onDrag={onDrag}
               onDragEnd={onDragEnd}
               animate={yControls}
@@ -507,7 +520,8 @@ export default function VideoFeed({ videos = [] }) {
                 >
                   <img
                     src={
-                      currentVideo.profiles?.avatar_url || "/default-avatar.png"
+                      currentVideo.profiles?.avatar_url ||
+                      "/default-avatar.png"
                     }
                     className="author-avatar"
                     alt="avatar"
@@ -519,8 +533,11 @@ export default function VideoFeed({ videos = [] }) {
                     <div className="video-cat">{currentVideo.category}</div>
                   </div>
                 </a>
+
                 <button
-                  className={`follow-action ${isFollowing ? "following" : ""}`}
+                  className={`follow-action ${
+                    isFollowing ? "following" : ""
+                  }`}
                   onClick={toggleFollow}
                 >
                   {isFollowing ? "Đang Follow" : "Follow"}
@@ -567,6 +584,7 @@ export default function VideoFeed({ videos = [] }) {
           searchQueryRef.current = query;
           if (!query.trim()) return;
           const pattern = `%${query}%`;
+
           supabase
             .from("videos")
             .select("*, profiles:profiles(id,username,avatar_url)")
