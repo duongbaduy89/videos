@@ -29,8 +29,8 @@ export default function VideoFeed({ videos = [] }) {
 
   // refs & animation controls
   const containerRef = useRef(null);
-  const yControls = useAnimation(); // current video controls
-  const nextControls = useAnimation(); // next video controls
+  const yControls = useAnimation();
+  const nextControls = useAnimation();
   const isAnimatingRef = useRef(false);
   const lastWheelRef = useRef(0);
   const nextRef = useRef(null);
@@ -77,20 +77,20 @@ export default function VideoFeed({ videos = [] }) {
   const handlers = useSwipeable({
     onSwipedUp: () => {
       if (list.length > 1) {
-        let nextIndex;
+        let r;
         do {
-          nextIndex = Math.floor(Math.random() * list.length);
-        } while (nextIndex === index);
-        safeSetIndex(nextIndex);
+          r = Math.floor(Math.random() * list.length);
+        } while (r === index);
+        safeSetIndex(r);
       }
     },
     onSwipedDown: () => {
       if (list.length > 1) {
-        let prevIndex;
+        let r;
         do {
-          prevIndex = Math.floor(Math.random() * list.length);
-        } while (prevIndex === index);
-        safeSetIndex(prevIndex);
+          r = Math.floor(Math.random() * list.length);
+        } while (r === index);
+        safeSetIndex(r);
       }
     },
     preventScrollOnSwipe: true,
@@ -139,30 +139,28 @@ export default function VideoFeed({ videos = [] }) {
       const height = containerRef.current?.clientHeight || window.innerHeight;
       const exitY = direction === "next" ? -height - 50 : height + 50;
 
-      // animate current out
       await yControls.start({
         y: exitY,
         opacity: 0.8,
         transition: { type: "spring", stiffness: 300, damping: 30 },
       });
 
-      // update index
+      // RANDOM INDEX HERE
       setIndex((prev) => {
-        return direction === "next"
-          ? (prev + 1) % list.length
-          : (prev - 1 + list.length) % list.length;
+        let r;
+        do {
+          r = Math.floor(Math.random() * list.length);
+        } while (r === prev);
+        return r;
       });
 
-      // reset current position
       await yControls.set({
         y: direction === "next" ? height + 50 : -height - 50,
         opacity: 1,
       });
 
-      // reset preview
       await nextControls.set({ y: "100%", opacity: 0, scale: 0.95 });
 
-      // animate in
       await yControls.start({
         y: 0,
         opacity: 1,
@@ -185,13 +183,11 @@ export default function VideoFeed({ videos = [] }) {
     const nextScaleVal = 0.95 + progress * 0.05;
     const currentOpacityVal = 1 - progress * 0.4;
 
-    // current video follows finger exactly
     yControls.set({
       y: offsetY,
       opacity: currentOpacityVal,
     });
 
-    // next video follows exactly (TikTok style)
     nextControls.set({
       y: height + offsetY,
       opacity: nextOpacityVal,
@@ -210,8 +206,9 @@ export default function VideoFeed({ videos = [] }) {
     const velocityY = info.velocity.y;
     const height = containerRef.current?.clientHeight || window.innerHeight;
 
-    const THRESHOLD = 140;
-    const VEL_THRESHOLD = 800;
+    // MORE SENSITIVE
+    const THRESHOLD = 70;
+    const VEL_THRESHOLD = 250;
 
     if (offsetY < -THRESHOLD || velocityY < -VEL_THRESHOLD) {
       await triggerTransition("next");
@@ -223,7 +220,6 @@ export default function VideoFeed({ videos = [] }) {
       return;
     }
 
-    // SNAP BACK (fixed)
     await yControls.start({
       y: 0,
       opacity: 1,
@@ -240,7 +236,7 @@ export default function VideoFeed({ videos = [] }) {
     nextRef.current?.classList.remove("revealed");
   };
 
-  // ----------------- Fetch helpers (unchanged) -----------------
+  // ----------------- Fetch helpers -----------------
   const updateList = (newList) => {
     if (!newList?.length) {
       setList([]);
@@ -480,8 +476,8 @@ export default function VideoFeed({ videos = [] }) {
               className="motion-video-wrapper"
               drag="y"
               dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.16}
-              dragTransition={{ power: 0.2, timeConstant: 200 }}
+              dragElastic={0.08}
+              dragTransition={{ power: 0.15, timeConstant: 120 }}
               onDrag={onDrag}
               onDragEnd={onDragEnd}
               animate={yControls}
