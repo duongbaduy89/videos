@@ -29,17 +29,16 @@ export default function VideoFeed({ videos = [] }) {
 
   // refs & animation controls
   const containerRef = useRef(null);
-  const yControls = useAnimation();
-  const nextYControls = useAnimation();   // ⬅ video kế tiếp
+  const yControls = useAnimation(); // controls for current video (y + optional opacity)
+  const nextControls = useAnimation(); // controls for next video (y + opacity + scale)
   const isAnimatingRef = useRef(false);
   const lastWheelRef = useRef(0);
+  const nextRef = useRef(null); // DOM ref to toggle CSS class for additional styles
 
-  // =======================================================
-  // Notification helper
-  // =======================================================
+  // ------------------ Notification helper ------------------
   const createNotification = async (type) => {
     if (!currentVideo || !user) return;
-    if (currentVideo.user_id === user.id) return;
+    if (currentVideo.user_id === user.id) return; // don't notify yourself
 
     await supabase.from("notifications").insert([
       {
@@ -52,9 +51,7 @@ export default function VideoFeed({ videos = [] }) {
     ]);
   };
 
-  // =======================================================
-  // Initialize
-  // =======================================================
+  // ----------------- Initialize -----------------
   useEffect(() => {
     if (videos?.length && list.length === 0) {
       setList(videos);
@@ -76,9 +73,7 @@ export default function VideoFeed({ videos = [] }) {
     return () => window.removeEventListener("openSearchPopup", handler);
   }, []);
 
-  // =======================================================
-  // Legacy swipe handlers (giữ nguyên)
-  // =======================================================
+  // ----------------- Legacy swipe handlers (keep) -----------------
   const handlers = useSwipeable({
     onSwipedUp: () => {
       if (list.length > 1) {
@@ -102,6 +97,7 @@ export default function VideoFeed({ videos = [] }) {
     trackTouch: true,
   });
 
+  // ----------------- Safe index setter -----------------
   const safeSetIndex = useCallback(
     (newIndex) => {
       if (!Array.isArray(list) || list.length === 0) return;
@@ -112,32 +108,34 @@ export default function VideoFeed({ videos = [] }) {
     [index, list]
   );
 
-  // =======================================================
-  // Mouse wheel transition
-  // =======================================================
+  // ----------------- Wheel handler (throttled) -----------------
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const onWheel = (e) => {
       const now = Date.now();
+      // throttle: 250ms
       if (now - lastWheelRef.current < 250) return;
       lastWheelRef.current = now;
 
       const delta = e.deltaY || e.wheelDelta || -e.detail;
       if (Math.abs(delta) < 2) return;
 
-      if (delta > 0) triggerTransition("next");
-      else triggerTransition("prev");
+      if (delta > 0) {
+        // scroll down -> next
+        triggerTransition("next");
+      } else {
+        // scroll up -> prev
+        triggerTransition("prev");
+      }
     };
 
     el.addEventListener("wheel", onWheel, { passive: true });
     return () => el.removeEventListener("wheel", onWheel);
   }, [index, list]);
 
-  // =======================================================
-  // Transition handler (next/prev)
-  // =======================================================
+  // ----------------- Transition logic used by drag & wheel -----------------
   const triggerTransition = useCallback(
     async (direction) => {
       if (!list || list.length <= 1) return;
@@ -147,93 +145,107 @@ export default function VideoFeed({ videos = [] }) {
       const height = containerRef.current?.clientHeight || window.innerHeight;
       const exitY = direction === "next" ? -height - 50 : height + 50;
 
-      await yControls.start({
-        y: exitY,
-        transition: { type: "spring", stiffness: 300, damping: 30 },
-      });
+      // animate current out
+      await yControls.start({ y: exitY, opacity: 0.8, transition: { type: "spring", stiffness: 300, damping: 30 } });
 
+      // update index
       setIndex((prev) => {
-        return direction === "next"
-          ? (prev + 1) % list.length
-          : (prev - 1 + list.length) % list.length;
+        const next =
+          direction === "next" ? (prev + 1) % list.length : (prev - 1 + list.length) % list.length;
+        return next;
       });
 
-      await yControls.set({
-        y: direction === "next" ? height + 50 : -height - 50,
-      });
+      // reset position immediately (without visible jump) before animating in
+      await yControls.set({ y: direction === "next" ? height + 50 : -height - 50, opacity: 1 });
 
-      await nextYControls.set({ y: "100%" }); // reset preview
+      // reset preview (next) to hidden under
+      await nextControls.set({ y: "100%", opacity: 0, scale: 0.95 });
 
-      await yControls.start({
-        y: 0,
-        transition: { type: "spring", stiffness: 300, damping: 30 },
-      });
+      // animate in
+      await yControls.start({ y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } });
+
+      // clean DOM class
+      nextRef.current?.classList.remove("revealed");
 
       isAnimatingRef.current = false;
     },
-    [list, yControls, nextYControls]
+    [list, yControls, nextControls]
   );
 
-  // =======================================================
-  // ★ TikTok partial reveal – reveal video tiếp theo khi đang kéo
-  // =======================================================
+  // ----------------- Advanced onDrag (partial reveal + fade + scale + brightness) -----------------
   const onDrag = (event, info) => {
     const offsetY = info.offset.y;
     const height = containerRef.current?.clientHeight || window.innerHeight;
+    const progress = Math.min(Math.abs(offsetY) / height, 1); // 0..1
 
-    // kéo lên → hiện video kế tiếp
+    // update visual progress: next video opacity & scale, current opacity
+    // next: opacity 0.4 -> 1.0, scale 0.95 -> 1.0
+    const nextOpacityVal = 0.4 + progress * 0.6;
+    const nextScaleVal = 0.95 + progress * 0.05;
+    const currentOpacityVal = 1 - progress * 0.4; // 1 -> 0.6
+
+    // apply values
+    nextControls.set({ opacity: nextOpacityVal, scale: nextScaleVal });
+    yControls.set({ opacity: currentOpacityVal });
+
+    // reveal next when dragging up
     if (offsetY < 0 && list.length > 1) {
       const reveal = Math.min(Math.abs(offsetY), height);
-      nextYControls.set({ y: height - reveal });
+      // position next: start at y = height (hidden), move to height - reveal
+      nextControls.set({ y: height - reveal, opacity: nextOpacityVal, scale: nextScaleVal });
+      if (progress > 0.08) nextRef.current?.classList.add("revealed");
+      else nextRef.current?.classList.remove("revealed");
     }
 
-    // kéo xuống → hiện video trước
+    // dragging down: small preview for previous (we don't render prev player to keep it simple)
     if (offsetY > 0 && list.length > 1) {
       const reveal = Math.min(offsetY, height);
-      nextYControls.set({ y: -height + reveal });
+      // push next (which is actually the next) down so UX doesn't look broken when dragging down
+      nextControls.set({ y: -height + reveal, opacity: Math.max(0, 0.2 + progress * 0.8), scale: nextScaleVal });
+      if (progress > 0.08) nextRef.current?.classList.add("revealed");
+      else nextRef.current?.classList.remove("revealed");
     }
   };
 
-  // =======================================================
-  // DragEnd: decide transition or snap back
-  // =======================================================
+  // ----------------- DragEnd: decide transition or snap back -----------------
   const onDragEnd = async (event, info) => {
     if (isAnimatingRef.current) return;
 
     const offsetY = info.offset.y;
     const velocityY = info.velocity.y;
 
-    const THRESHOLD = 140;
-    const VEL_THRESHOLD = 800;
+    const THRESHOLD = 140; // px
+    const VEL_THRESHOLD = 800; // px/s
 
     if (offsetY < -THRESHOLD || velocityY < -VEL_THRESHOLD) {
+      // user dragged up -> next
       await triggerTransition("next");
     } else if (offsetY > THRESHOLD || velocityY > VEL_THRESHOLD) {
+      // user dragged down -> prev
       await triggerTransition("prev");
     } else {
-      // snap back current
-      await yControls.start({
-        y: 0,
-        transition: { type: "spring", stiffness: 400, damping: 40 },
-      });
+      // not enough -> snap back: current to y:0 and reset preview
+      await yControls.start({ y: 0, opacity: 1, transition: { type: "spring", stiffness: 400, damping: 40 } });
 
-      // snap back next/prev preview
-      await nextYControls.start({
+      await nextControls.start({
         y: "100%",
+        opacity: 0,
+        scale: 0.95,
         transition: { type: "spring", stiffness: 300, damping: 30 },
       });
+
+      nextRef.current?.classList.remove("revealed");
     }
   };
 
-  // =======================================================
-  // Fetch helpers
-  // =======================================================
+  // ----------------- Fetch helpers (unchanged) -----------------
   const updateList = (newList) => {
     if (!newList?.length) {
       setList([]);
       setIndex(0);
       return;
     }
+    // shallow compare by ref
     if (newList !== list) {
       setList(newList);
       setIndex(0);
@@ -245,71 +257,80 @@ export default function VideoFeed({ videos = [] }) {
       updateList(videos);
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
       .order("created_at", { ascending: false });
-    updateList(data);
+    if (!error) updateList(data);
   };
 
   const fetchFollowing = async () => {
-    if (!user) return updateList([]);
-
+    if (!user) {
+      updateList([]);
+      return;
+    }
     const { data: follows } = await supabase
       .from("follows")
       .select("following_id")
       .eq("follower_id", user.id);
-
-    const ids = follows?.map((x) => x.following_id) || [];
-    if (!ids.length) return updateList([]);
-
+    const ids = (follows || []).map((x) => x.following_id);
+    if (!ids.length) {
+      updateList([]);
+      return;
+    }
     const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
       .in("user_id", ids)
       .order("created_at", { ascending: false });
-
     updateList(data);
   };
 
   const fetchLiked = async () => {
-    if (!user) return updateList([]);
-
+    if (!user) {
+      updateList([]);
+      return;
+    }
     const { data: likes } = await supabase
       .from("likes")
       .select("video_id")
       .eq("user_id", user.id);
-
-    const ids = likes?.map((x) => x.video_id) || [];
-    if (!ids.length) return updateList([]);
-
+    const ids = (likes || []).map((x) => x.video_id);
+    if (!ids.length) {
+      updateList([]);
+      return;
+    }
     const { data } = await supabase
       .from("videos")
       .select("*, profiles:profiles(id,username,avatar_url)")
       .in("id", ids)
       .order("created_at", { ascending: false });
-
     updateList(data);
   };
 
+  // ----------------- Tab effect -----------------
   useEffect(() => {
     if (tab === "foryou") fetchForYou();
     if (tab === "following") fetchFollowing();
     if (tab === "liked") fetchLiked();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, user]);
 
-  // =======================================================
-  // Load stats
-  // =======================================================
+  // ----------------- Stats (unchanged) -----------------
   const loadStats = async () => {
     if (!currentVideo?.id) return;
-
     const vid = currentVideo.id;
 
-    const { data: lk } = await supabase.from("likes").select("*").eq("video_id", vid);
+    const { data: lk } = await supabase
+      .from("likes")
+      .select("*")
+      .eq("video_id", vid);
     setLikesCount(lk?.length || 0);
 
-    const { data: cm } = await supabase.from("comments").select("*").eq("video_id", vid);
+    const { data: cm } = await supabase
+      .from("comments")
+      .select("*")
+      .eq("video_id", vid);
     setCommentsCount(cm?.length || 0);
 
     if (user) {
@@ -338,8 +359,12 @@ export default function VideoFeed({ videos = [] }) {
     if (!user) return alert("Bạn cần đăng nhập để like");
 
     if (!isLiked) {
-      await supabase.from("likes").insert({ video_id: currentVideo.id, user_id: user.id });
+      await supabase
+        .from("likes")
+        .insert({ video_id: currentVideo.id, user_id: user.id });
+
       await createNotification("like");
+
       setLikesCount((x) => x + 1);
       setIsLiked(true);
     } else {
@@ -348,6 +373,7 @@ export default function VideoFeed({ videos = [] }) {
         .delete()
         .eq("video_id", currentVideo.id)
         .eq("user_id", user.id);
+
       setLikesCount((x) => Math.max(0, x - 1));
       setIsLiked(false);
     }
@@ -371,21 +397,19 @@ export default function VideoFeed({ videos = [] }) {
     }
   };
 
-  // =======================================================
-  // Reset animation when video changes
-  // =======================================================
+  // Whenever index changes, reset animations / positions
   useEffect(() => {
-    yControls.set({ y: 0 });
-    nextYControls.set({ y: "100%" });  // reset preview
+    yControls.set({ y: 0, opacity: 1 });
+    nextControls.set({ y: "100%", opacity: 0, scale: 0.95 });
+    nextRef.current?.classList.remove("revealed");
     isAnimatingRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
-  // =======================================================
-  // RENDER
-  // =======================================================
+  // ----------------- Render -----------------
   return (
     <div className="videofeed-root" {...handlers} ref={containerRef}>
-      {/* Tabs */}
+      {/* Tabs overlay */}
       <div className="overlay-tabs">
         <div
           className={`otab ${tab === "following" ? "active" : ""}`}
@@ -411,11 +435,14 @@ export default function VideoFeed({ videos = [] }) {
       <div className="videofeed-viewport">
         {currentVideo ? (
           <>
-            {/* ★ VIDEO KẾ TIẾP – nằm dưới, để reveal */}
+            {/* NEXT VIDEO (underneath) - preview only for "next" */}
             {list.length > 1 && (
               <motion.div
                 key={"next-" + index}
                 className="motion-next-video"
+                ref={nextRef}
+                initial={{ y: "100%", opacity: 0, scale: 0.95 }}
+                animate={nextControls}
                 style={{
                   position: "absolute",
                   top: 0,
@@ -423,22 +450,28 @@ export default function VideoFeed({ videos = [] }) {
                   right: 0,
                   bottom: 0,
                   zIndex: 0,
+                  // note: we leave visual styling to CSS file; controls change opacity/scale/y
                 }}
-                animate={nextYControls}
-                initial={{ y: "100%" }}
               >
                 <TwitterVideoPlayer
                   video={list[(index + 1) % list.length]}
                   videoUrl={list[(index + 1) % list.length].url}
-                  autoPlayEnabled={false}
+                  autoPlayEnabled={false} // don't autoplay preview to save resources
                 />
               </motion.div>
             )}
 
-            {/* VIDEO HIỆN TẠI */}
+            {/* CURRENT VIDEO (on top) */}
             <motion.div
               key={currentVideo.id}
               className="motion-video-wrapper"
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.16}
+              dragTransition={{ power: 0.2, timeConstant: 200 }} // inertia-like feel
+              onDrag={onDrag}
+              onDragEnd={onDragEnd}
+              animate={yControls}
               style={{
                 height: "100%",
                 width: "100%",
@@ -452,12 +485,6 @@ export default function VideoFeed({ videos = [] }) {
                 justifyContent: "center",
                 zIndex: 2,
               }}
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.16}
-              onDrag={onDrag}     // ★ thêm partial reveal
-              onDragEnd={onDragEnd}
-              animate={yControls}
               whileTap={{ cursor: "grabbing" }}
             >
               <TwitterVideoPlayer
@@ -474,18 +501,24 @@ export default function VideoFeed({ videos = [] }) {
             {/* OVERLAY UI */}
             <div className="info-overlay">
               <div className="author-row">
-                <a href={`/profile/${currentVideo.user_id}`} className="author-link">
+                <a
+                  href={`/profile/${currentVideo.user_id}`}
+                  className="author-link"
+                >
                   <img
-                    src={currentVideo.profiles?.avatar_url || "/default-avatar.png"}
+                    src={
+                      currentVideo.profiles?.avatar_url || "/default-avatar.png"
+                    }
                     className="author-avatar"
                     alt="avatar"
                   />
                   <div className="author-meta">
-                    <div className="author-name">@{currentVideo.profiles?.username}</div>
+                    <div className="author-name">
+                      @{currentVideo.profiles?.username}
+                    </div>
                     <div className="video-cat">{currentVideo.category}</div>
                   </div>
                 </a>
-
                 <button
                   className={`follow-action ${isFollowing ? "following" : ""}`}
                   onClick={toggleFollow}
@@ -506,7 +539,10 @@ export default function VideoFeed({ videos = [] }) {
                 >
                   ❤️ {likesCount}
                 </span>
-                <span className="comment-count" onClick={() => setShowComments(true)}>
+                <span
+                  className="comment-count"
+                  onClick={() => setShowComments(true)}
+                >
                   💬 {commentsCount}
                 </span>
               </div>
@@ -518,7 +554,10 @@ export default function VideoFeed({ videos = [] }) {
       </div>
 
       {showComments && currentVideo && (
-        <CommentPanel video={currentVideo} onClose={() => setShowComments(false)} />
+        <CommentPanel
+          video={currentVideo}
+          onClose={() => setShowComments(false)}
+        />
       )}
 
       <SearchPopup
