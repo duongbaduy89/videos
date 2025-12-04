@@ -5,7 +5,7 @@ import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
 export default function Profile() {
-  const { id } = useParams();
+  const { id } = useParams(); // id của profile đang xem
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -36,10 +36,12 @@ export default function Profile() {
         realtimeRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
   useEffect(() => {
     loadVideos(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   // ----------------- load profile -----------------
@@ -50,7 +52,10 @@ export default function Profile() {
         .select("*")
         .eq("id", id)
         .single();
-      if (error) return console.error(error);
+      if (error) {
+        console.error("loadProfile error:", error);
+        return;
+      }
       setProfile(data);
       setNewBio(data?.bio || "");
     } catch (err) {
@@ -73,7 +78,10 @@ export default function Profile() {
         )
         .maybeSingle();
 
-      if (error) return console.error(error);
+      if (error) {
+        console.error("loadFriendRelation error:", error);
+        return;
+      }
       if (!data) {
         setFriendRelation(null);
         return;
@@ -112,7 +120,6 @@ export default function Profile() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (payload) => {
-          // realtime notification update (optional UI animation)
           console.log("new notification", payload.new);
         }
       )
@@ -132,9 +139,12 @@ export default function Profile() {
         .eq("user_id", id)
         .order("created_at", { ascending: false })
         .range(from, to);
-      if (error) return console.error(error);
+      if (error) {
+        console.error("loadVideos error:", error);
+        return;
+      }
       setVideos(data || []);
-      setTotalVideos(count || (data ? data.length : 0));
+      setTotalVideos(count ?? (data ? data.length : 0));
       setPage(pageToLoad);
     } catch (err) {
       console.error(err);
@@ -319,11 +329,10 @@ export default function Profile() {
           <button onClick={unfriend} style={btnRed}>
             Hủy kết bạn
           </button>
+
+          {/* 🔥 CHỈ NAVIGATE SANG ChatRoom với param user_id */}
           <button
-            onClick={async () => {
-              const convId = await openConversation(id);
-              navigate(`/chat/${convId}`);
-            }}
+            onClick={() => navigate(`/chat/${id}`)}
             style={btnBlue}
           >
             Nhắn tin
@@ -349,29 +358,6 @@ export default function Profile() {
   const btnGray = { padding: "6px 12px", borderRadius: 8, background: "#444", border: "none", color: "white", cursor: "pointer" };
   const btnRed = { padding: "6px 10px", borderRadius: 8, background: "#ef4444", border: "none", color: "white", cursor: "pointer", fontSize: 13 };
   const btnBlue = { padding: "6px 10px", borderRadius: 8, background: "#0ea5e9", border: "none", color: "black", cursor: "pointer", fontSize: 13 };
-
-  const openConversation = async (otherUserId) => {
-    if (!user) return null;
-    const userA = user.id < otherUserId ? user.id : otherUserId;
-    const userB = user.id < otherUserId ? otherUserId : user.id;
-
-    const { data: existData } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("user_a", userA)
-      .eq("user_b", userB)
-      .maybeSingle();
-
-    if (existData) return existData.id;
-
-    const { data } = await supabase
-      .from("conversations")
-      .insert([{ user_a: userA, user_b: userB }])
-      .select()
-      .single();
-
-    return data?.id;
-  };
 
   if (!profile) return <div style={{ padding: 20 }}>Đang tải...</div>;
 

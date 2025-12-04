@@ -1,105 +1,106 @@
-// src/pages/ChatRoom.jsx
 import React, { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
 export default function ChatRoom() {
-  const { conversationId } = useParams();
+  const { user_id } = useParams();
   const { user } = useAuth();
+
   const [messages, setMessages] = useState([]);
+  const [otherUser, setOtherUser] = useState(null);
   const [text, setText] = useState("");
-  const [file, setFile] = useState(null);
-  const listRef = useRef(null);
-  const realtimeRef = useRef(null);
+  const bottomRef = useRef();
 
+  // Load other user
   useEffect(() => {
-    loadMessages();
-    subscribeMessages();
-    return () => {
-      if (realtimeRef.current) supabase.removeChannel(realtimeRef.current);
+    const loadUser = async () => {
+      const { data } = await supabase.from("profiles").select("*").eq("id", user_id).single();
+      setOtherUser(data);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
+    loadUser();
+  }, [user_id]);
 
-  const loadMessages = async () => {
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-    if (error) {
-      console.error("loadMessages", error);
-      return;
-    }
-    setMessages(data || []);
-    setTimeout(() => scrollToBottom(), 50);
-  };
+  // Load messages
+  useEffect(() => {
+    if (!user) return;
 
-  const subscribeMessages = () => {
-    if (realtimeRef.current) supabase.removeChannel(realtimeRef.current);
-    const ch = supabase
-      .channel(`messages-${conversationId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-        setMessages((m) => [...m, payload.new]);
-        setTimeout(() => scrollToBottom(), 50);
-      })
+    const loadMessages = async () => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${user_id}),and(sender_id.eq.${user_id},receiver_id.eq.${user.id})`)
+        .order("created_at", { ascending: true });
+
+      if (error) console.error(error);
+      setMessages(data || []);
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+    loadMessages();
+  }, [user_id, user?.id]);
+
+  // Realtime
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`chat-${user.id}-${user_id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const msg = payload.new;
+          if ((msg.sender_id === user.id && msg.receiver_id === user_id) ||
+              (msg.sender_id === user_id && msg.receiver_id === user.id)) {
+            setMessages((prev) => [...prev, msg]);
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+          }
+        }
+      )
       .subscribe();
 
-    realtimeRef.current = ch;
-  };
-
-  const scrollToBottom = () => {
-    if (!listRef.current) return;
-    listRef.current.scrollTop = listRef.current.scrollHeight;
-  };
+    return () => supabase.removeChannel(channel);
+  }, [user_id, user?.id]);
 
   const sendMessage = async () => {
-    if (!text.trim() && !file) return;
-    let attachment_url = null;
-    if (file) {
-      // upload to Cloudflare worker 'chatfr' - expects 'file' form field and returns {success:true, publicUrl:...}
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("folder", "imgmess/");
-        const res = await fetch("https://chatfr.workers.dev", { method: "POST", body: fd });
-        const j = await res.json();
-        if (!j.success) throw new Error("upload failed");
-        attachment_url = j.publicUrl || j.url;
-      } catch (err) {
-        console.error("upload err", err);
-        alert("Upload ảnh thất bại");
-      }
-    }
+    if (!text.trim()) return;
 
-    try {
-      await supabase.from("messages").insert([{ conversation_id: conversationId, sender_id: user.id, content: text || null, attachment_url }]);
-      setText("");
-      setFile(null);
-    } catch (err) {
-      console.error("sendMessage err", err);
-    }
+    const { data, error } = await supabase.from("messages").insert([{
+      sender_id: user.id,
+      receiver_id: user_id,
+      content: text,
+      read: false
+    }]).select().single();
+
+    if (error) return console.error(error);
+
+    setMessages((prev) => [...prev, data]); // hiển thị ngay
+    setText("");
   };
 
   return (
-    <div style={{ padding: 16, color: "white", display: "flex", flexDirection: "column", height: "80vh" }}>
-      <div ref={listRef} style={{ overflowY: "auto", flex: 1, padding: 12, border: "1px solid #1f2937", borderRadius: 8 }}>
-        {messages.map((m) => (
-          <div key={m.id} style={{ marginBottom: 12, display: "flex", flexDirection: m.sender_id === user.id ? "row-reverse" : "row", gap: 8 }}>
-            <div style={{ maxWidth: "70%", padding: 8, background: m.sender_id === user.id ? "#0ea5e9" : "#111827", borderRadius: 8 }}>
-              {m.content && <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>}
-              {m.attachment_url && <img src={m.attachment_url} alt="att" style={{ maxWidth: "200px", borderRadius: 6, marginTop: 8 }} />}
-              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>{new Date(m.created_at).toLocaleString()}</div>
-            </div>
-          </div>
-        ))}
+    <div className="chat-room">
+      <div className="chat-header">
+        <Link to="/messages" className="back-btn">←</Link>
+        <div className="chat-username">{otherUser?.username || "Đang tải..."}</div>
       </div>
 
-      <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Nhập tin nhắn..." style={{ flex: 1, padding: 8, borderRadius: 8, background: "#0b1220", color: "white", border: "1px solid #23303b" }} />
-        <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files[0])} />
-        <button onClick={sendMessage} style={{ padding: "8px 12px", borderRadius: 8, background: "#0ea5e9", border: "none", cursor: "pointer" }}>Gửi</button>
+      <div className="chat-messages">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`chat-msg ${msg.sender_id === user.id ? "sent" : "received"}`}>
+            {msg.content}
+          </div>
+        ))}
+        <div ref={bottomRef}></div>
+      </div>
+
+      <div className="chat-input-area">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Nhắn tin..."
+        />
+        <button onClick={sendMessage}>Gửi</button>
       </div>
     </div>
   );
