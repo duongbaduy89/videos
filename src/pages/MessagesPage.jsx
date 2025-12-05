@@ -1,3 +1,4 @@
+// src/pages/MessagesPage.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
@@ -6,77 +7,71 @@ import { useNavigate } from "react-router-dom";
 export default function MessagesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [conversations, setConversations] = useState([]);
+  const [list, setList] = useState([]);
 
   useEffect(() => {
     if (!user) return;
 
-    const loadConversations = async () => {
-      const { data, error } = await supabase
+    const load = async () => {
+      const { data: msgs } = await supabase
         .from("messages")
         .select("*")
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
-      if (error) return console.error(error);
-
-      // Map latest message per conversation
-      const convMap = {};
-      data.forEach((msg) => {
-        const otherId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-        if (!convMap[otherId]) convMap[otherId] = msg;
+      // gom theo user
+      const map = {};
+      msgs.forEach(m => {
+        const other = m.sender_id === user.id ? m.receiver_id : m.sender_id;
+        if (!map[other]) map[other] = m;
       });
-      setConversations(Object.entries(convMap));
+
+      // load profiles của từng user
+      const keys = Object.keys(map);
+      if (keys.length === 0) return setList([]);
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", keys);
+
+      const finalList = profiles.map(p => ({
+        user: p,
+        lastMsg: map[p.id]
+      }));
+
+      setList(finalList);
     };
 
-    loadConversations();
-
-    // Realtime subscription
-    const channel = supabase
-      .channel(`messages-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const msg = payload.new;
-          if (msg.sender_id === user.id || msg.receiver_id === user.id) {
-            setConversations((prev) => {
-              const otherId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-              const filtered = prev.filter(([id]) => id !== otherId);
-              return [[otherId, msg], ...filtered];
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+    load();
   }, [user]);
-
-  const openChat = (otherId) => {
-    navigate(`/chat/${otherId}`);
-  };
 
   return (
     <div className="messages-page">
-      <h2>Cuộc trò chuyện</h2>
+      <h2>Tin nhắn</h2>
+
       <div className="conversation-list">
-        {conversations.map(([otherId, msg]) => (
+        {list.map(({ user: u, lastMsg }) => (
           <div
-            key={otherId}
             className="conversation-item"
-            onClick={() => openChat(otherId)}
+            key={u.id}
+            onClick={() => navigate(`/chat/${u.id}`)}
           >
             <div className="conv-avatar">
-              <img src={msg.sender_avatar || "/default-avatar.png"} alt="" />
+              <img src={u.avatar_url || "/default-avatar.png"} />
             </div>
             <div className="conv-info">
-              <div className="conv-username">@{msg.sender_username || "User"}</div>
-              <div className="conv-text">{msg.content}</div>
+              <div className="conv-username">@{u.username}</div>
+              <div className="conv-text">{lastMsg.content}</div>
             </div>
           </div>
         ))}
-        {conversations.length === 0 && <div>Chưa có cuộc trò chuyện nào</div>}
+
+        {list.length === 0 && (
+          <div style={{ padding: 20, color: "#aaa" }}>
+            Chưa có cuộc trò chuyện nào
+          </div>
+        )}
       </div>
     </div>
   );
