@@ -19,26 +19,34 @@ export default function MessagesPage() {
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
-      // gom theo user
+      // gom theo user đối phương
       const map = {};
-      msgs.forEach(m => {
+      msgs.forEach((m) => {
         const other = m.sender_id === user.id ? m.receiver_id : m.sender_id;
-        if (!map[other]) map[other] = m;
+
+        if (!map[other]) {
+          map[other] = m; // vì msgs đã sort DESC nên m là tin nhắn mới nhất
+        }
       });
 
-      // load profiles của từng user
-      const keys = Object.keys(map);
-      if (keys.length === 0) return setList([]);
+      const ids = Object.keys(map);
+
+      if (ids.length === 0) return setList([]);
 
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, username, avatar_url")
-        .in("id", keys);
+        .in("id", ids);
 
-      const finalList = profiles.map(p => ({
-        user: p,
-        lastMsg: map[p.id]
-      }));
+      const finalList = profiles
+        .map((p) => ({
+          user: p,
+          lastMsg: map[p.id],
+        }))
+        .sort(
+          (a, b) =>
+            new Date(b.lastMsg.created_at) - new Date(a.lastMsg.created_at)
+        );
 
       setList(finalList);
     };
@@ -60,9 +68,15 @@ export default function MessagesPage() {
             <div className="conv-avatar">
               <img src={u.avatar_url || "/default-avatar.png"} />
             </div>
+
             <div className="conv-info">
               <div className="conv-username">@{u.username}</div>
-              <div className="conv-text">{lastMsg.content}</div>
+
+              <div className="conv-text">
+                {lastMsg.image_url
+                  ? "📷 Ảnh"
+                  : lastMsg.content?.slice(0, 40) || ""}
+              </div>
             </div>
           </div>
         ))}
