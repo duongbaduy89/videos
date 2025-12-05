@@ -32,7 +32,7 @@ export default function ChatRoom() {
     loadUser();
   }, [user_id]);
 
-  // FIX LỖI QUAN TRỌNG NHẤT – Query đúng định dạng, đảm bảo load đủ tin nhắn
+  // Load toàn bộ tin nhắn giữa 2 người
   useEffect(() => {
     if (!user) return;
 
@@ -66,7 +66,8 @@ export default function ChatRoom() {
 
     const channel = supabase
       .channel(`chat-${user.id}-${user_id}`)
-      .on("postgres_changes",
+      .on(
+        "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const msg = payload.new;
@@ -143,7 +144,6 @@ export default function ChatRoom() {
 
       setMessages((prev) => [...prev, data]);
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-
     } catch (err) {
       alert("Upload thất bại!");
     }
@@ -165,17 +165,23 @@ export default function ChatRoom() {
       {/* ----- HEADER ----- */}
       <div className="chat-header">
         <Link to="/messages" className="back-btn">←</Link>
-        <img src={otherUser?.avatar_url || "/default-avatar.png"} className="chat-header-avatar" />
+        <img
+          src={otherUser?.avatar_url || "/default-avatar.png"}
+          className="chat-header-avatar"
+        />
         <div className="chat-username">@{otherUser?.username}</div>
       </div>
 
-      {/* ----- MESSAGES ----- */}
+      {/* ----- MESSAGES LIST ----- */}
       <div className="chat-messages">
         {messages.map((msg) => {
           const mine = msg.sender_id === user.id;
 
           return (
-            <div className={`chat-row ${mine ? "row-right" : "row-left"}`} key={msg.id}>
+            <div
+              className={`chat-row ${mine ? "row-right" : "row-left"}`}
+              key={msg.id}
+            >
               {!mine && (
                 <img
                   src={otherUser?.avatar_url || "/default-avatar.png"}
@@ -184,8 +190,6 @@ export default function ChatRoom() {
               )}
 
               <div className="bubble-container">
-
-                {/* Text hoặc Image */}
                 {msg.image_url ? (
                   <img
                     src={msg.image_url}
@@ -199,7 +203,6 @@ export default function ChatRoom() {
                 )}
 
                 <div className="msg-time">{formatTime(msg.created_at)}</div>
-
                 {mine && msg.read && <div className="msg-seen">Đã xem</div>}
               </div>
             </div>
@@ -209,8 +212,14 @@ export default function ChatRoom() {
         <div ref={bottomRef}></div>
       </div>
 
-      {/* ----- INPUT ----- */}
-      <div className="chat-input-area">
+      {/* ----- INPUT (ENTER TO SEND) ----- */}
+      <form
+        className="chat-input-area"
+        onSubmit={(e) => {
+          e.preventDefault();
+          sendMessage();   // Enter / OK để gửi
+        }}
+      >
         <label className="upload-icon">
           📷
           <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
@@ -220,12 +229,13 @@ export default function ChatRoom() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Nhắn tin..."
+          autoComplete="off"
         />
 
-        <button onClick={sendMessage} disabled={uploading}>
+        <button type="submit" disabled={uploading}>
           {uploading ? "Đang gửi..." : "Gửi"}
         </button>
-      </div>
+      </form>
 
       {/* ----- PREVIEW FULLSCREEN ----- */}
       {previewImage && (
