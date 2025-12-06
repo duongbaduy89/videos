@@ -2,10 +2,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 
-// ❌ TẠM THỜI BỎ HEADER
-// import Header from "./components/Header";
-
 import XBottomNav from "./components/XBottomNav";
+import ProfileSidebar from "./components/ProfileSidebar";
 
 import VideoFeed from "./components/VideoFeed";
 import Login from "./components/Auth/Login";
@@ -26,8 +24,8 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
 
-        {/* ❌ VÔ HIỆU HÓA HEADER */}
-        {/* <Header /> */}
+        {/* Sidebar + avatar */}
+        <ProfileSidebar />
 
         <Routes>
           <Route path="/" element={<VideoFeed />} />
@@ -45,9 +43,7 @@ export default function App() {
           <Route path="/chat/:user_id" element={<ChatRoom />} />
         </Routes>
 
-        {/* ⭐ giữ thanh điều hướng X */}
         <XBottomNav />
-
       </BrowserRouter>
     </AuthProvider>
   );

@@ -8,9 +8,12 @@ import TwitterVideoPlayer from "./TwitterVideoPlayer";
 import SearchPopup from "./SearchPopup";
 import { supabase } from "../supabaseClient";
 import "../styles/VideoFeed.css";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function VideoFeed({ videos = [] }) {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [tab, setTab] = useState("foryou");
   const [list, setList] = useState(videos || []);
@@ -26,6 +29,9 @@ export default function VideoFeed({ videos = [] }) {
   const searchQueryRef = useRef("");
 
   const [showComments, setShowComments] = useState(false);
+
+  // --- jump target from query params
+  const [jumpTarget, setJumpTarget] = useState({ id: null, openComments: false });
 
   // refs & animation controls
   const containerRef = useRef(null);
@@ -72,6 +78,79 @@ export default function VideoFeed({ videos = [] }) {
     window.addEventListener("openSearchPopup", handler);
     return () => window.removeEventListener("openSearchPopup", handler);
   }, []);
+
+  // ----------------- Parse query params for jump
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const vid = params.get("video");
+    const openComments = params.get("openComments") === "true";
+    if (vid) {
+      setJumpTarget({ id: vid, openComments });
+    } else {
+      setJumpTarget({ id: null, openComments: false });
+    }
+  }, [location.search]);
+
+  // ----------------- When list changes, perform jump if requested
+  useEffect(() => {
+    const targetId = jumpTarget.id;
+    if (!targetId) return;
+    if (!list || list.length === 0) return;
+
+    const foundIndex = list.findIndex((v) => v.id === targetId);
+    if (foundIndex !== -1) {
+      // set index to found
+      setIndex(foundIndex);
+
+      // open comment panel if requested
+      if (jumpTarget.openComments) {
+        // small timeout to ensure UI updated
+        setTimeout(() => setShowComments(true), 180);
+      }
+
+      // remove query params from URL so it won't trigger again
+      navigate(location.pathname, { replace: true });
+      // clear jumpTarget to avoid re-run
+      setJumpTarget({ id: null, openComments: false });
+    } else {
+      // If video not in current list, optionally try to fetch only that video and insert into list
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from("videos")
+            .select("*, profiles:profiles(id,username,avatar_url)")
+            .eq("id", targetId)
+            .maybeSingle();
+
+          if (data) {
+            // insert at top and jump
+            setList((prev) => {
+              const exists = (prev || []).some((p) => p.id === data.id);
+              if (exists) return prev;
+              return [data, ...(prev || [])];
+            });
+
+            // wait DOM update, then set index 0
+            setTimeout(() => {
+              setIndex(0);
+              if (jumpTarget.openComments) setShowComments(true);
+              navigate(location.pathname, { replace: true });
+              setJumpTarget({ id: null, openComments: false });
+            }, 160);
+          } else {
+            // no video found - just clear query
+            navigate(location.pathname, { replace: true });
+            setJumpTarget({ id: null, openComments: false });
+          }
+        } catch (err) {
+          console.error("fetch single video error", err);
+          navigate(location.pathname, { replace: true });
+          setJumpTarget({ id: null, openComments: false });
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list, jumpTarget]);
 
   // ----------------- Legacy swipe handlers -----------------
   const handlers = useSwipeable({
