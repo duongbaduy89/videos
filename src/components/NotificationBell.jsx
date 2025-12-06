@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-export default function NotificationBell() {
+export default function NotificationBell({ fromNav = false }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
@@ -13,6 +13,9 @@ export default function NotificationBell() {
 
   const popupRef = useRef();
 
+  /* -----------------------------------
+   * Load & realtime notifications
+   * ----------------------------------- */
   useEffect(() => {
     if (!user) return;
 
@@ -36,7 +39,6 @@ export default function NotificationBell() {
 
     fetchNotifs();
 
-    // Realtime
     const channel = supabase
       .channel(`notif-bell-${user.id}`)
       .on(
@@ -57,32 +59,9 @@ export default function NotificationBell() {
     return () => supabase.removeChannel(channel);
   }, [user]);
 
-  const handleClickNotif = (n) => {
-    setOpen(false);
-    if (!n.is_read) {
-      supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
-      setNotifications((prev) =>
-        prev.map((p) => (p.id === n.id ? { ...p, is_read: true } : p))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    }
-
-    if (n.type === "friend_request" || n.type === "friend_accept") {
-      if (n.from_user_id) navigate(`/profile/${n.from_user_id}`);
-      return;
-    }
-
-    if ((n.type === "like" || n.type === "comment") && n.video_id) {
-      if (n.type === "comment")
-        navigate(`/video/${n.video_id}?openComments=true`);
-      else navigate(`/video/${n.video_id}`);
-      return;
-    }
-
-    if (n.from_user_id) navigate(`/profile/${n.from_user_id}`);
-  };
-
-  // close popup if click outside
+  /* -----------------------------------
+   * Click outside to close popup
+   * ----------------------------------- */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (popupRef.current && !popupRef.current.contains(e.target)) {
@@ -93,8 +72,65 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  /* -----------------------------------
+   * Handle click notification
+   * ----------------------------------- */
+  const handleClickNotif = (n) => {
+    setOpen(false);
+
+    if (!n.is_read) {
+      supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+
+      setNotifications((prev) =>
+        prev.map((p) => (p.id === n.id ? { ...p, is_read: true } : p))
+      );
+
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+
+    if (n.type === "friend_request" || n.type === "friend_accept") {
+      navigate(`/profile/${n.from_user_id}`);
+      return;
+    }
+
+    if (n.type === "like" && n.video_id) {
+      navigate(`/video/${n.video_id}`);
+      return;
+    }
+
+    if (n.type === "comment" && n.video_id) {
+      navigate(`/video/${n.video_id}?openComments=true`);
+      return;
+    }
+
+    navigate(`/profile/${n.from_user_id}`);
+  };
+
+  /* -----------------------------------
+   * Popup style (dynamic direction)
+   * ----------------------------------- */
+  const popupStyle = {
+    position: "fixed",
+    width: 300,
+    maxHeight: 400,
+    overflowY: "auto",
+    background: "#111827",
+    color: "white",
+    border: "1px solid #1f2937",
+    borderRadius: 8,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+    zIndex: 5000,
+    right: 16,
+
+    // Nếu từ bottom nav → popup mở LÊN (bottom: nav-height)
+    ...(fromNav
+      ? { bottom: 70 } // mở popup lên trên
+      : { top: 40, position: "absolute", right: 0 }) // header: mở xuống dưới
+  };
+
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: fromNav ? "static" : "relative" }}>
+      {/* Icon */}
       <div
         id="notif-icon"
         onClick={() => setOpen((prev) => !prev)}
@@ -102,13 +138,16 @@ export default function NotificationBell() {
           cursor: "pointer",
           padding: 8,
           borderRadius: 8,
-          border: "2px solid black",
+          border: fromNav ? "none" : "2px solid black",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          position: "relative",
         }}
       >
         <FaBell color="white" size={20} />
+
+        {/* Badge */}
         {unreadCount > 0 && (
           <span
             style={{
@@ -132,24 +171,9 @@ export default function NotificationBell() {
         )}
       </div>
 
+      {/* Popup */}
       {open && (
-        <div
-          ref={popupRef}
-          style={{
-            position: "absolute",
-            top: 40,
-            right: 0,
-            width: 300,
-            maxHeight: 400,
-            overflowY: "auto",
-            background: "#111827",
-            color: "white",
-            border: "1px solid #1f2937",
-            borderRadius: 8,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-            zIndex: 1000,
-          }}
-        >
+        <div ref={popupRef} style={popupStyle}>
           {notifications.length === 0 && (
             <div style={{ padding: 16, textAlign: "center", color: "#9ca3af" }}>
               Không có thông báo mới
@@ -181,12 +205,14 @@ export default function NotificationBell() {
                 }}
               />
               <div style={{ flex: 1, fontSize: 14 }}>
-                {n.type === "friend_request" && `@${n.sender?.username} gửi lời mời kết bạn`}
-                {n.type === "friend_accept" && `@${n.sender?.username} chấp nhận lời mời kết bạn`}
-                {n.type === "like" && `@${n.sender?.username} đã thích video của bạn`}
+                {n.type === "friend_request" &&
+                  `@${n.sender?.username} gửi lời mời kết bạn`}
+                {n.type === "friend_accept" &&
+                  `@${n.sender?.username} chấp nhận lời mời kết bạn`}
+                {n.type === "like" &&
+                  `@${n.sender?.username} đã thích video của bạn`}
                 {n.type === "comment" &&
                   `@${n.sender?.username} bình luận: ${n.video?.title || ""}`}
-                {!["friend_request","friend_accept","like","comment"].includes(n.type) && n.type}
                 <div style={{ fontSize: 12, color: "#9ca3af" }}>
                   {new Date(n.created_at).toLocaleString()}
                 </div>

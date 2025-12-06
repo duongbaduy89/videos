@@ -1,0 +1,132 @@
+/* File: src/styles/xnav.css */
+
+:root {
+  --x-nav-height: 62px;
+  --x-center-btn-size: 56px;
+}
+
+/* Reset */
+.x-bottom-nav * {
+  box-sizing: border-box;
+}
+
+.x-icon-btn,
+.x-plus-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.x-icon-btn:focus,
+.x-plus-btn:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.12);
+  outline-offset: 4px;
+}
+
+/* FIXED NAV BAR */
+.x-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--x-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #000;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.x-nav-list {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.x-nav-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ICONS */
+.x-icon {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+
+.x-plus-icon {
+  width: 26px;
+  height: 26px;
+  color: #fff;
+}
+
+.x-icon-btn .x-icon {
+  stroke: #fff;
+}
+
+/* PLUS BUTTON CENTER */
+.x-center-item {
+  position: relative;
+}
+
+.x-plus-btn {
+  width: var(--x-center-btn-size);
+  height: var(--x-center-btn-size);
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: #000;
+  border: 2px solid #fff;
+  transform: translateY(-14px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+.x-plus-btn .x-plus-icon {
+  stroke: #fff;
+}
+
+/* Tap area mobile */
+.x-icon-btn,
+.x-plus-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Spacer tránh che nội dung */
+.x-bottom-spacer {
+  height: calc(var(--x-nav-height) + env(safe-area-inset-bottom));
+}
+
+/* Mobile nhỏ */
+@media (max-width: 420px) {
+  :root {
+    --x-nav-height: 64px;
+    --x-center-btn-size: 56px;
+  }
+
+  .x-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Active scale */
+.x-icon-btn:active .x-icon,
+.x-plus-btn:active .x-plus-icon {
+  transform: scale(0.96);
+}
