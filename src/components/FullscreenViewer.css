@@ -1,0 +1,27 @@
+.fullscreen-viewer {
+  position: fixed;
+  inset: 0;
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999;
+}
+
+.fullscreen-image {
+  max-width: 95%;
+  max-height: 95%;
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 28px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: 10px;
+  padding: 6px 12px;
+  color: white;
+  cursor: pointer;
+}

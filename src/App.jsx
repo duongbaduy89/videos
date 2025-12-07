@@ -10,6 +10,7 @@ import Login from "./components/Auth/Login";
 import Signup from "./components/Auth/Signup";
 
 import Upload from "./pages/Upload";
+import CreatePost from "./pages/CreatePost"; // ✅ Import CreatePost
 import Profile from "./pages/Profile";
 import NotificationsPage from "./pages/NotificationsPage";
 import FriendsPage from "./pages/FriendsPage";
@@ -18,6 +19,7 @@ import ChatRoom from "./pages/ChatRoom";
 import MessagesPage from "./pages/MessagesPage";
 
 import "./styles/messages.css";
+import "./styles/xnav.css";
 
 export default function App() {
   return (
@@ -34,6 +36,7 @@ export default function App() {
 
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/upload" element={<Upload />} />
+          <Route path="/createpost" element={<CreatePost />} /> {/* ✅ Route CreatePost */}
 
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/friends" element={<FriendsPage />} />

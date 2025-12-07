@@ -1,5 +1,3 @@
-/* File: src/styles/xnav.css */
-
 :root {
   --x-nav-height: 62px;
   --x-center-btn-size: 56px;
@@ -130,3 +128,72 @@
 .x-plus-btn:active .x-plus-icon {
   transform: scale(0.96);
 }
+
+/* ----------------------
+ * Modal Upload Option
+ * ---------------------- */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out forwards;
+}
+
+/* Popup modal */
+.modal-upload-option {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 2000; /* cao hơn nav */
+}
+
+.modal-upload-content {
+  background: #1a1a1a;
+  width: 100%;
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  padding: 1.25rem;
+  animation: slide-up 0.25s ease-out forwards;
+}
+
+.modal-upload-content h2 {
+  color: white;
+  font-weight: bold;
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+}
+
+.modal-upload-content button {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.modal-upload-content button:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.modal-upload-content .cancel-btn {
+  color: #ccc;
+  background: transparent;
+  margin-top: 0.5rem;
+}
+.modal-upload-content {
+  background: #1a1a1a;
+  width: 100%;
+  max-width: 500px;       /* giới hạn chiều rộng */
+  margin: 0 12px 20px;    /* margin ngang + dưới */
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  padding: 1.25rem;
+  animation: slide-up 0.25s ease-out forwards;
+}
+

@@ -1,0 +1,127 @@
+/* File: src/styles/createpost.css */
+
+/* ============ PAGE LAYOUT ============ */
+.createpost-page {
+  min-height: 100vh;
+  padding-top: 100px;     /* tránh header */
+  padding-bottom: 50px;   /* tránh mất phần dưới */
+  background: #0a0a0a;
+  display: block;          /* không dùng flex để không căn giữa */
+  overflow-y: auto;        /* cho phép scroll */
+}
+
+/* ============ CARD ============ */
+.createpost-card {
+  width: 90%;
+  max-width: 900px;
+  background: #111;
+  padding: 20px;
+  border-radius: 18px;
+  color: white;
+  margin: 0 auto;          /* căn giữa theo ngang */
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+/* ============ GRID ============ */
+.createpost-row {
+  display: flex;
+  gap: 20px;
+}
+
+/* Left Preview */
+.preview-col {
+  width: 40%;
+}
+
+.preview-box {
+  width: 100%;
+  background: #222;
+  border-radius: 14px;
+  height: 260px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-empty {
+  color: #777;
+  font-size: 14px;
+  text-align: center;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+/* Right Form */
+.form-col {
+  width: 60%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.field span {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #1c1c1c;
+  color: white;
+  font-size: 14px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* ============ UPLOAD BUTTON ============ */
+.upload-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(45deg, #ff4da6, #ff6b9f);
+  box-shadow: 0px 4px 12px rgba(255, 77, 166, 0.4);
+  transition: 0.2s;
+}
+
+.upload-btn:active {
+  transform: scale(0.97);
+}
+
+/* Status text */
+.status-text {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #eee;
+}
+
+/* ========= MOBILE ========= */
+@media (max-width: 768px) {
+  .createpost-row {
+    flex-direction: column;
+  }
+
+  .preview-col,
+  .form-col {
+    width: 100%;
+  }
+}
