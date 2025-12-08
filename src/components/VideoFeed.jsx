@@ -280,7 +280,6 @@ export default function VideoFeed({ videos = [] }) {
     },
     [list, yControls, nextControls]
   );
-
   // ----------------- FIXED onDrag (FULL SYNC) -----------------
   const onDrag = (event, info) => {
     const offsetY = info.offset.y;
@@ -346,7 +345,6 @@ export default function VideoFeed({ videos = [] }) {
 
   // ----------------- Helpers for feed fetching & normalization -----------------
   const normalizePhotoRow = (p) => {
-    // p.url might be a JSON array string or a single string
     let urlVal = p.url;
     try {
       if (typeof urlVal === "string" && urlVal.trim().startsWith("[")) {
@@ -407,7 +405,6 @@ export default function VideoFeed({ videos = [] }) {
           return;
         }
 
-        // we expect likes table possibly references video_id and/or photo_id
         const { data: likes } = await supabase
           .from("likes")
           .select("video_id, photo_id")
@@ -464,10 +461,9 @@ export default function VideoFeed({ videos = [] }) {
   // ----------------- Tab effect -----------------
   useEffect(() => {
     fetchFeedItems({ mode: tab });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, user]);
 
-  // ----------------- Stats (works for video & photo) -----------------
+  // ----------------- Stats (video/photo) -----------------
   const loadStats = async () => {
     if (!currentVideo?.id) return;
     const id = currentVideo.id;
@@ -482,7 +478,7 @@ export default function VideoFeed({ videos = [] }) {
 
       setLikesCount(lk?.length || 0);
 
-      // comments: expecting comments table may contain video_id/photo_id columns
+      // comments
       const { data: cm } = await supabase
         .from("comments")
         .select("*")
@@ -530,8 +526,10 @@ export default function VideoFeed({ videos = [] }) {
       if (!isLiked) {
         const insertObj = { user_id: user.id };
         insertObj[idField] = id;
+
         await supabase.from("likes").insert(insertObj);
         await createNotification("like");
+
         setLikesCount((x) => x + 1);
         setIsLiked(true);
       } else {
@@ -540,6 +538,7 @@ export default function VideoFeed({ videos = [] }) {
           .delete()
           .eq("user_id", user.id)
           .eq(idField, id);
+
         setLikesCount((x) => Math.max(0, x - 1));
         setIsLiked(false);
       }
@@ -553,12 +552,10 @@ export default function VideoFeed({ videos = [] }) {
 
     try {
       if (!isFollowing) {
-        await supabase
-          .from("follows")
-          .insert({
-            follower_id: user.id,
-            following_id: currentVideo.user_id,
-          });
+        await supabase.from("follows").insert({
+          follower_id: user.id,
+          following_id: currentVideo.user_id,
+        });
         setIsFollowing(true);
       } else {
         await supabase
@@ -582,7 +579,6 @@ export default function VideoFeed({ videos = [] }) {
     nextRef.current?.classList.remove("revealed");
     isAnimatingRef.current = false;
   }, [index]);
-
   // ----------------- Render -----------------
   return (
     <div className="videofeed-root" {...handlers} ref={containerRef}>
@@ -594,12 +590,14 @@ export default function VideoFeed({ videos = [] }) {
         >
           Following
         </div>
+
         <div
           className={`otab ${tab === "foryou" ? "active" : ""}`}
           onClick={() => setTab("foryou")}
         >
           For You
         </div>
+
         <div
           className={`otab ${tab === "liked" ? "active" : ""}`}
           onClick={() => setTab("liked")}
@@ -629,7 +627,6 @@ export default function VideoFeed({ videos = [] }) {
                   zIndex: 0,
                 }}
               >
-                {/* preview next item: respect type */}
                 {list[(index + 1) % list.length]?.type === "video" ? (
                   <TwitterVideoPlayer
                     video={list[(index + 1) % list.length]}
@@ -637,12 +634,14 @@ export default function VideoFeed({ videos = [] }) {
                     autoPlayEnabled={false}
                   />
                 ) : (
-                  <PhotoPost item={list[(index + 1) % list.length]} />
+                  <PhotoPost
+                    item={list[(index + 1) % list.length]}
+                  />
                 )}
               </motion.div>
             )}
 
-            {/* CURRENT ITEM (video or photo) */}
+            {/* CURRENT ITEM */}
             <motion.div
               key={currentVideo.id}
               className="motion-video-wrapper"
@@ -688,7 +687,7 @@ export default function VideoFeed({ videos = [] }) {
               )}
             </motion.div>
 
-            {/* OVERLAY UI */}
+            {/* OVERLAY UI (TITLE, DESC, USER, LIKE, COMMENT) */}
             <div className="info-overlay">
               <div className="author-row">
                 <a
@@ -702,12 +701,15 @@ export default function VideoFeed({ videos = [] }) {
                     className="author-avatar"
                     alt="avatar"
                   />
+
                   <div className="author-meta">
                     <div className="author-name">
                       @{currentVideo.profiles?.username}
                     </div>
+
                     <div className="video-cat">
-                      {currentVideo.category || (currentVideo.type === "photo" ? "photo" : "")}
+                      {currentVideo.category ||
+                        (currentVideo.type === "photo" ? "photo" : "")}
                     </div>
                   </div>
                 </a>
@@ -720,25 +722,14 @@ export default function VideoFeed({ videos = [] }) {
                 </button>
               </div>
 
+              {/* Only one TITLE + DESCRIPTION (đã fix lỗi 2 tiêu đề chồng nhau) */}
               <div className="title-desc">
                 <div className="video-title">{currentVideo.title}</div>
                 <div className="video-desc">{currentVideo.description}</div>
               </div>
 
-              <div className="bottom-stats">
-                <span
-                  className={`like-count ${isLiked ? "liked" : ""}`}
-                  onClick={toggleLike}
-                >
-                  ❤️ {likesCount}
-                </span>
-                <span
-                  className="comment-count"
-                  onClick={() => setShowComments(true)}
-                >
-                  💬 {commentsCount}
-                </span>
-              </div>
+              {/* LIKE + COMMENT */}
+              
             </div>
           </>
         ) : (
@@ -746,43 +737,60 @@ export default function VideoFeed({ videos = [] }) {
         )}
       </div>
 
+      {/* COMMENT PANEL */}
       {showComments && currentVideo && (
-        <CommentPanel video={currentVideo} onClose={() => setShowComments(false)} />
+        <CommentPanel
+          video={currentVideo}
+          onClose={() => setShowComments(false)}
+        />
       )}
 
+      {/* SEARCH POPUP */}
       <SearchPopup
         visible={searchOpen}
         onClose={() => setSearchOpen(false)}
         onSearch={(query) => {
           searchQueryRef.current = query;
           if (!query.trim()) return;
+
           const pattern = `%${query}%`;
 
-          // search videos and photos by title/description/category
           Promise.all([
             supabase
               .from("videos")
               .select("*, profiles:profiles(id,username,avatar_url)")
-              .or(`title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`)
+              .or(
+                `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`
+              )
               .order("created_at", { ascending: false }),
+
             supabase
               .from("photos")
               .select("*, profiles:profiles(id,username,avatar_url)")
-              .or(`title.ilike.${pattern},description.ilike.${pattern}`)
+              .or(
+                `title.ilike.${pattern},description.ilike.${pattern}`
+              )
               .order("created_at", { ascending: false }),
           ])
             .then(([vRes, pRes]) => {
-              const videoItems = (vRes.data || []).map((v) => ({ ...v, type: "video" }));
-              const photoItems = (pRes.data || []).map((p) => normalizePhotoRow(p));
-              const merged = [...videoItems, ...photoItems].sort(
-                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              const videoItems = (vRes.data || []).map((v) => ({
+                ...v,
+                type: "video",
+              }));
+
+              const photoItems = (pRes.data || []).map((p) =>
+                normalizePhotoRow(p)
               );
+
+              const merged = [...videoItems, ...photoItems].sort(
+                (a, b) =>
+                  new Date(b.created_at) - new Date(a.created_at)
+              );
+
               updateList(merged);
               setTab("foryou");
             })
-            .catch((err) => {
-              console.error("search err", err);
-            });
+            .catch((err) => console.error("search err", err));
         }}
         initial={searchQueryRef.current}
       />

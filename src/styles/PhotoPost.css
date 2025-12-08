@@ -1,15 +1,28 @@
-/* Container của bài ảnh */
-.photo-container {
+/* src/styles/PhotoPost.css
+   sizing designed to NOT push the overlay/title out of view in VideoFeed
+   PhotoPost sits inside a full-screen wrapper from VideoFeed; we avoid forcing 100vh here.
+*/
+
+.photopost-root {
   width: 100%;
-  height: auto;
-  padding: 14px;
-  background: transparent;
+  box-sizing: border-box;
+  padding: 12px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* GRID ẢNH */
+/* Grid area: limit height so it won't push text out of screen.
+   This keeps feed overlay (title / buttons) visible and avoids breaking swipe layout.
+*/
 .photo-grid {
   display: grid;
   gap: 8px;
+  width: 100%;
+  /* keep grid area at most 60% of viewport height so overlay isn't pushed out */
+  max-height: calc(60vh);
+  overflow: hidden;
 }
 
 .photo-grid.single {
@@ -20,51 +33,90 @@
   grid-template-columns: 1fr 1fr;
 }
 
-.photo-thumb {
+/* Ensure thumbnails preserve aspect and don't overflow the grid cell */
+.photo-thumb-wrap {
   width: 100%;
-  height: 38vh; /* Không quá cao -> không vỡ layout */
-  object-fit: cover;
-  border-radius: 12px;
-  cursor: pointer;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 10px;
 }
 
-/* TEXT */
-.photo-text {
-  margin-top: 10px;
-  color: white;
+.photo-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Meta row: compact on the right so it won't push overlay */
+.photo-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.photo-meta-left {
+  flex: 1 1 auto;
 }
 
 .photo-title {
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.1;
 }
 
 .photo-desc {
-  font-size: 14px;
-  opacity: 0.85;
-  margin-top: 4px;
+  font-size: 13px;
+  color: #d0d0d0;
+  margin-top: 6px;
+  max-height: 3.6em;
+  overflow: hidden;
 }
 
-/* VIEWER */
-.viewer-bg {
+/* action buttons compact */
+.photo-meta-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  min-width: 56px;
+}
+
+.icon-btn {
+  background: rgba(255,255,255,0.06);
+  border: none;
+  color: white;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.icon-btn .count {
+  margin-left: 6px;
+  font-weight: 600;
+}
+
+.icon-btn.liked {
+  background: rgba(255,0,80,0.14);
+}
+
+/* Viewer full-screen */
+.photo-viewer {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.92);
-  z-index: 99999;
+  background: rgba(0,0,0,0.95);
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1200;
+  touch-action: pan-y;
 }
 
-.viewer-wrapper {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.viewer-swipe-zone {
+.viewer-swipe-area {
   width: 100%;
   height: 100%;
   display: flex;
@@ -76,15 +128,33 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 10px;
+  user-select: none;
+  -webkit-user-drag: none;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  border-radius: 6px;
 }
 
-.viewer-count {
+.viewer-ui {
   position: absolute;
-  bottom: 28px;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.viewer-counter {
   color: white;
-  background: rgba(0,0,0,0.3);
-  padding: 6px 14px;
-  border-radius: 12px;
-  font-size: 15px;
+  background: rgba(0,0,0,0.45);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight:600;
+}
+
+.viewer-close-hint {
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
 }
