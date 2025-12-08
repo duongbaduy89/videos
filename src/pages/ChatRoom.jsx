@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import "../styles/ChatRoom.css";   // ← THÊM DÒNG NÀY
+import "../styles/ChatRoom.css";
 
 const WORKER_URL = "https://chatfr.dataphim002.workers.dev";
 
@@ -17,10 +17,11 @@ export default function ChatRoom() {
   const [uploading, setUploading] = useState(false);
 
   const [previewImage, setPreviewImage] = useState(null);
-
   const bottomRef = useRef();
 
-  // Load profile đối phương
+  /* ===============================
+        LOAD PROFILE NGƯỜI CHAT
+     =============================== */
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase
@@ -33,7 +34,9 @@ export default function ChatRoom() {
     loadUser();
   }, [user_id]);
 
-  // Load tin nhắn
+  /* ===============================
+        LOAD TIN NHẮN
+     =============================== */
   useEffect(() => {
     if (!user) return;
 
@@ -48,8 +51,11 @@ export default function ChatRoom() {
 
       if (!error) {
         setMessages(data || []);
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        }, 50);
 
+        // mark read
         await supabase
           .from("messages")
           .update({ read: true })
@@ -61,7 +67,9 @@ export default function ChatRoom() {
     load();
   }, [user_id, user?.id]);
 
-  // Realtime
+  /* ===============================
+       REALTIME
+     =============================== */
   useEffect(() => {
     if (!user) return;
 
@@ -69,19 +77,18 @@ export default function ChatRoom() {
       .channel(`chat-${user.id}-${user_id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const msg = payload.new;
+
           if (
             (msg.sender_id === user.id && msg.receiver_id === user_id) ||
             (msg.sender_id === user_id && msg.receiver_id === user.id)
           ) {
             setMessages((prev) => [...prev, msg]);
-            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            setTimeout(() => {
+              bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 80);
           }
         }
       )
@@ -90,7 +97,9 @@ export default function ChatRoom() {
     return () => supabase.removeChannel(channel);
   }, [user_id, user?.id]);
 
-  // Gửi text
+  /* ===============================
+        GỬI TEXT
+     =============================== */
   const sendMessage = async () => {
     if (!text.trim()) return;
 
@@ -113,7 +122,9 @@ export default function ChatRoom() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Upload ảnh
+  /* ===============================
+        UPLOAD IMAGE
+     =============================== */
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -128,7 +139,9 @@ export default function ChatRoom() {
         method: "POST",
         body: form,
       });
+
       const json = await uploadRes.json();
+      const imageUrl = json.url;
 
       const { data } = await supabase
         .from("messages")
@@ -137,7 +150,7 @@ export default function ChatRoom() {
             sender_id: user.id,
             receiver_id: user_id,
             content: "",
-            image_url: json.url,
+            image_url: imageUrl,
             read: false,
           },
         ])
@@ -153,6 +166,9 @@ export default function ChatRoom() {
     setUploading(false);
   };
 
+  /* ===============================
+        TIME FORMAT
+     =============================== */
   const formatTime = (ts) => {
     const d = new Date(ts);
     return d.toLocaleTimeString("vi-VN", {
@@ -164,8 +180,8 @@ export default function ChatRoom() {
   return (
     <div className="chat-room">
 
-      {/* HEADER */}
-      <div className="chat-header">
+      {/* ===== HEADER ===== */}
+      <div className="chat-header glass">
         <Link to="/messages" className="back-btn">←</Link>
         <img
           src={otherUser?.avatar_url || "/default-avatar.png"}
@@ -174,7 +190,7 @@ export default function ChatRoom() {
         <div className="chat-username">@{otherUser?.username}</div>
       </div>
 
-      {/* MESSAGES */}
+      {/* ===== MESSAGES ===== */}
       <div className="chat-messages">
         {messages.map((msg) => {
           const mine = msg.sender_id === user.id;
@@ -214,9 +230,9 @@ export default function ChatRoom() {
         <div ref={bottomRef}></div>
       </div>
 
-      {/* INPUT */}
+      {/* ===== INPUT ===== */}
       <form
-        className="chat-input-fixed"
+        className="chat-input-fixed chat-input-above-nav"
         onSubmit={(e) => {
           e.preventDefault();
           sendMessage();
@@ -231,13 +247,15 @@ export default function ChatRoom() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Nhắn tin..."
+          autoComplete="off"
         />
 
         <button type="submit" disabled={uploading}>
-          {uploading ? "Đang gửi..." : "Gửi"}
+          {uploading ? "..." : "Gửi"}
         </button>
       </form>
 
+      {/* ===== PREVIEW FULL ===== */}
       {previewImage && (
         <div
           className="preview-overlay"
@@ -246,6 +264,7 @@ export default function ChatRoom() {
           <img src={previewImage} className="preview-full" />
         </div>
       )}
+
     </div>
   );
 }
