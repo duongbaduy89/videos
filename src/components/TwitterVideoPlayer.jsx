@@ -12,7 +12,8 @@ import "../styles/twitterVideo.css";
 
 /**
  * Props:
- * - videoUrl (string) OR video (object)
+ * - videoUrl (string)
+ * - video (object)
  * - autoPlayEnabled (bool)
  * - onOpenComments (fn)
  * - onLike (fn)
@@ -31,8 +32,11 @@ export default function TwitterVideoPlayer({
   const [muted, setMuted] = useState(!autoPlayEnabled);
 
   useEffect(() => {
-    // autoplay handling: nếu autoplay false, mute mặc định
+    // autoPlayEnabled thay đổi -> chỉnh muted theo nó
     setMuted(!autoPlayEnabled);
+    if (videoRef.current) {
+      videoRef.current.muted = !autoPlayEnabled;
+    }
   }, [autoPlayEnabled]);
 
   const togglePlay = () => {
@@ -54,8 +58,10 @@ export default function TwitterVideoPlayer({
     <div
       className="twitter-container"
       onClick={(e) => {
+        // nhấn vào khoảng trống -> toggle play
         if (
           !e.target.closest(".t-btn") &&
+          !e.target.closest(".twitter-right-controls") &&
           !e.target.closest(".twitter-progress-wrap")
         ) {
           togglePlay();
@@ -69,12 +75,16 @@ export default function TwitterVideoPlayer({
         loop
         autoPlay={autoPlayEnabled}
         muted={muted}
-        preload="metadata"   // ✅ chỉ load metadata ban đầu
+        preload="metadata"
         className="twitter-video"
       />
 
-      {/* RIGHT BUTTONS */}
-      <div className="twitter-right-controls" onClick={(e) => e.stopPropagation()}>
+      {/* RIGHT ACTION BUTTONS */}
+      <div
+        className="twitter-right-controls"
+        onClick={(e) => e.stopPropagation()} // chặn click làm pause video
+      >
+        {/* COMMENT BUTTON */}
         <button
           className="t-btn"
           onClick={() => onOpenComments?.()}
@@ -83,25 +93,32 @@ export default function TwitterVideoPlayer({
           <FiMessageCircle size={22} />
         </button>
 
+        {/* LIKE BUTTON */}
         <button
           className="t-btn"
           onClick={() => onLike?.()}
           title="Thích"
         >
-          {liked ? <AiFillHeart size={24} color="red" /> : <AiOutlineHeart size={24} />}
+          {liked ? (
+            <AiFillHeart size={24} color="red" />
+          ) : (
+            <AiOutlineHeart size={24} />
+          )}
         </button>
 
+        {/* SAVE */}
         <button className="t-btn" title="Lưu">
           <FiBookmark size={22} />
         </button>
 
+        {/* MUTE / UNMUTE */}
         <button
           className="t-btn"
           onClick={() => {
-            setMuted((m) => {
-              const newMute = !m;
-              if (videoRef.current) videoRef.current.muted = newMute;
-              return newMute;
+            setMuted((prev) => {
+              const next = !prev;
+              if (videoRef.current) videoRef.current.muted = next;
+              return next;
             });
           }}
           title={muted ? "Bật âm thanh" : "Tắt âm thanh"}
@@ -109,6 +126,7 @@ export default function TwitterVideoPlayer({
           {muted ? <FiVolumeX size={22} /> : <FiVolume2 size={22} />}
         </button>
 
+        {/* FULLSCREEN */}
         <button
           className="t-btn"
           onClick={() => videoRef.current?.requestFullscreen?.()}

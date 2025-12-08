@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import "../styles/ChatRoom.css";   // ← THÊM DÒNG NÀY
 
 const WORKER_URL = "https://chatfr.dataphim002.workers.dev";
 
@@ -32,7 +33,7 @@ export default function ChatRoom() {
     loadUser();
   }, [user_id]);
 
-  // Load toàn bộ tin nhắn giữa 2 người
+  // Load tin nhắn
   useEffect(() => {
     if (!user) return;
 
@@ -60,7 +61,7 @@ export default function ChatRoom() {
     load();
   }, [user_id, user?.id]);
 
-  // Realtime listener
+  // Realtime
   useEffect(() => {
     if (!user) return;
 
@@ -68,10 +69,13 @@ export default function ChatRoom() {
       .channel(`chat-${user.id}-${user_id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
         (payload) => {
           const msg = payload.new;
-
           if (
             (msg.sender_id === user.id && msg.receiver_id === user_id) ||
             (msg.sender_id === user_id && msg.receiver_id === user.id)
@@ -124,9 +128,7 @@ export default function ChatRoom() {
         method: "POST",
         body: form,
       });
-
       const json = await uploadRes.json();
-      const imageUrl = json.url;
 
       const { data } = await supabase
         .from("messages")
@@ -135,7 +137,7 @@ export default function ChatRoom() {
             sender_id: user.id,
             receiver_id: user_id,
             content: "",
-            image_url: imageUrl,
+            image_url: json.url,
             read: false,
           },
         ])
@@ -162,7 +164,7 @@ export default function ChatRoom() {
   return (
     <div className="chat-room">
 
-      {/* ----- HEADER ----- */}
+      {/* HEADER */}
       <div className="chat-header">
         <Link to="/messages" className="back-btn">←</Link>
         <img
@@ -172,7 +174,7 @@ export default function ChatRoom() {
         <div className="chat-username">@{otherUser?.username}</div>
       </div>
 
-      {/* ----- MESSAGES LIST ----- */}
+      {/* MESSAGES */}
       <div className="chat-messages">
         {messages.map((msg) => {
           const mine = msg.sender_id === user.id;
@@ -212,12 +214,12 @@ export default function ChatRoom() {
         <div ref={bottomRef}></div>
       </div>
 
-      {/* ----- INPUT (ENTER TO SEND) ----- */}
+      {/* INPUT */}
       <form
-        className="chat-input-area"
+        className="chat-input-fixed"
         onSubmit={(e) => {
           e.preventDefault();
-          sendMessage();   // Enter / OK để gửi
+          sendMessage();
         }}
       >
         <label className="upload-icon">
@@ -229,7 +231,6 @@ export default function ChatRoom() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Nhắn tin..."
-          autoComplete="off"
         />
 
         <button type="submit" disabled={uploading}>
@@ -237,7 +238,6 @@ export default function ChatRoom() {
         </button>
       </form>
 
-      {/* ----- PREVIEW FULLSCREEN ----- */}
       {previewImage && (
         <div
           className="preview-overlay"
