@@ -1,61 +1,47 @@
 // src/components/PhotoPost.jsx
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import "../styles/PhotoPost.css";
 
-export default function PhotoPost({ item, onLike, onOpenComments, onFollow }) {
+export default function PhotoPost({ item }) {
   const images = Array.isArray(item.url) ? item.url : [];
 
-  const [viewerIndex, setViewerIndex] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
 
-  // Swipe trong viewer
-  const handlers = useSwipeable({
+  // Vuốt trái/phải mượt
+  const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
-      if (viewerIndex < images.length - 1) {
-        setViewerIndex((i) => i + 1);
-      }
+      if (index < images.length - 1) setIndex(index + 1);
     },
     onSwipedRight: () => {
-      if (viewerIndex > 0) {
-        setViewerIndex((i) => i - 1);
-      }
+      if (index > 0) setIndex(index - 1);
     },
     trackTouch: true,
-    trackMouse: false,
+    trackMouse: false
   });
 
+  // Eff kéo xuống đóng
+  const [dragY, setDragY] = useState(0);
+
+  const handleDrag = (_, info) => {
+    setDragY(info.point.y);
+  };
+
+  const handleDragEnd = () => {
+    if (dragY > 160) setOpen(false); // Vuốt mạnh xuống để đóng
+    setDragY(0);
+  };
+
   return (
-    <div className="photo-wrapper">
+    <div className="photo-container">
+
       {/* GRID ẢNH */}
       <div className={`photo-grid ${images.length >= 2 ? "multi" : "single"}`}>
-        {images.map((img, idx) => (
+        {images.map((src, i) => (
           <img
-            key={idx}
-            src={img}
+            key={i}
+            src={src}
             className="photo-thumb"
-            onClick={() => setViewerIndex(idx)}
-            alt=""
-          />
-        ))}
-      </div>
-
-      {/* TEXT */}
-      <div className="photo-text">
-        <div className="photo-title">{item.title}</div>
-        <div className="photo-desc">{item.description}</div>
-      </div>
-
-      {/* VIEWER FULLSCREEN */}
-      {viewerIndex !== null && (
-        <div className="photo-viewer" onClick={() => setViewerIndex(null)}>
-          <div {...handlers} className="viewer-swipe-area">
-            <img src={images[viewerIndex]} className="viewer-img" alt="" />
-          </div>
-          <div className="viewer-count">
-            {viewerIndex + 1}/{images.length}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+            onClick=
