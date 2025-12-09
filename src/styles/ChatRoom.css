@@ -56,7 +56,7 @@
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 70px 12px 120px; /* FIX: padding dưới vừa bằng chiều cao input */
+  padding: 70px 12px 80px; /* FIX: padding dưới vừa bằng chiều cao input */
   display: flex;
   flex-direction: column;
   gap: 12px;

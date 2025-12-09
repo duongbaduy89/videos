@@ -4,50 +4,48 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../supabaseClient";
 
-import NotificationBell from "./NotificationBell"; // ⭐ dùng lại component cũ
+import NotificationBell from "./NotificationBell";
+import ModalUploadOption from "./ModalUploadOption";
 import "../styles/xnav.css";
 
 export default function XBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [totalVideos, setTotalVideos] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [openUploadMenu, setOpenUploadMenu] = useState(false);
   const chatChannelRef = useRef(null);
 
-  /* --------------------------
-   *   LOAD TOTAL VIDEOS (SEARCH)
-   * -------------------------- */
+  // Load total video count (Search badge)
   useEffect(() => {
     const loadCount = async () => {
       const { count } = await supabase
         .from("videos")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true });
 
       setTotalVideos(count || 0);
     };
     loadCount();
   }, []);
 
-  /* --------------------------
-   *   LOAD UNREAD MESSAGES
-   * -------------------------- */
+  // LOAD số tin nhắn chưa đọc
   const loadUnreadMessages = async () => {
     if (!user) return;
+
     const { count, error } = await supabase
       .from("messages")
-      .select("*", { count: "exact" })
+      .select("id", { count: "exact", head: true })
       .eq("receiver_id", user.id)
       .eq("read", false);
 
     if (!error) setUnreadMessages(count || 0);
   };
 
-  /* --------------------------
-   *   REALTIME MESSAGE LISTENER
-   * -------------------------- */
+  // Realtime + load lần đầu
   useEffect(() => {
+    if (authLoading) return; // đợi user load xong
     if (!user) return;
 
     loadUnreadMessages();
@@ -62,9 +60,7 @@ export default function XBottomNav() {
           table: "messages",
           filter: `receiver_id=eq.${user.id}`,
         },
-        () => {
-          setUnreadMessages((prev) => prev + 1);
-        }
+        () => setUnreadMessages((prev) => prev + 1)
       )
       .subscribe();
 
@@ -73,23 +69,31 @@ export default function XBottomNav() {
     return () => {
       if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current);
     };
-  }, [user]);
+  }, [user, authLoading]);
 
-  /* --------------------------
-   *   HANDLERS
-   * -------------------------- */
-
+  // Open Search Popup
   const handleSearch = () => {
     window.dispatchEvent(new CustomEvent("openSearchPopup", {}));
   };
 
+  // Upload menu
   const handleUpload = () => {
-    if (!user) return navigate("/login");
-    navigate("/upload");
+    if (!user) {
+      navigate("/login", { state: { from: location.pathname || "/" } });
+      return;
+    }
+    setOpenUploadMenu(true);
   };
 
+  const handleSelectUploadType = (type) => {
+    setOpenUploadMenu(false);
+
+    if (type === "photo") navigate("/createpost");
+    else if (type === "video") navigate("/upload");
+  };
+
+  // Mở messages KHÔNG reset badge sai
   const handleMessages = () => {
-    setUnreadMessages(0);
     navigate("/messages");
   };
 
@@ -136,15 +140,17 @@ export default function XBottomNav() {
                 <circle cx="11" cy="11" r="6" />
                 <path d="M21 21l-4.35-4.35" />
               </svg>
-
-              {/* badge */}
               <span className="x-badge-small">{totalVideos}</span>
             </button>
           </li>
 
           {/* UPLOAD */}
           <li className="x-nav-item x-center-item">
-            <button className="x-plus-btn" aria-label="Upload" onClick={handleUpload}>
+            <button
+              className="x-plus-btn"
+              aria-label="Upload"
+              onClick={handleUpload}
+            >
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -172,7 +178,11 @@ export default function XBottomNav() {
 
           {/* MESSAGES */}
           <li className="x-nav-item">
-            <button className="x-icon-btn" aria-label="Messages" onClick={handleMessages}>
+            <button
+              className="x-icon-btn"
+              aria-label="Messages"
+              onClick={handleMessages}
+            >
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -193,7 +203,15 @@ export default function XBottomNav() {
         </ul>
       </nav>
 
+      {/* SPACER */}
       <div className="x-bottom-spacer" />
+
+      {/* POPUP UPLOAD */}
+      <ModalUploadOption
+        open={openUploadMenu}
+        onClose={() => setOpenUploadMenu(false)}
+        onSelect={handleSelectUploadType}
+      />
     </>
   );
 }

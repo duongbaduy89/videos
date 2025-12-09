@@ -1,5 +1,5 @@
 // src/pages/ChatRoom.jsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
@@ -17,7 +17,22 @@ export default function ChatRoom() {
   const [uploading, setUploading] = useState(false);
 
   const [previewImage, setPreviewImage] = useState(null);
-  const bottomRef = useRef();
+
+  const messagesRef = useRef(null); // container ref
+  const bottomRef = useRef(); // sentinel (kept for safety)
+
+  // helper: scroll to bottom (instant or smooth)
+  const scrollToBottom = useCallback((behavior = "auto") => {
+    const el = messagesRef.current;
+    if (!el) return;
+    // scroll to max
+    try {
+      el.scrollTo({ top: el.scrollHeight, behavior });
+    } catch (e) {
+      // fallback
+      el.scrollTop = el.scrollHeight;
+    }
+  }, []);
 
   /* ===============================
         LOAD PROFILE NGƯỜI CHAT
@@ -51,21 +66,23 @@ export default function ChatRoom() {
 
       if (!error) {
         setMessages(data || []);
-        setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: "auto" });
-        }, 50);
 
-        // mark read
-        await supabase
-          .from("messages")
-          .update({ read: true })
-          .eq("receiver_id", user.id)
-          .eq("sender_id", user_id);
+        // scroll after render; use small delays to account for images loading
+        setTimeout(() => scrollToBottom("auto"), 40);
+        setTimeout(() => scrollToBottom("auto"), 300);
+        setTimeout(() => scrollToBottom("auto"), 700);
       }
+
+      // mark read
+      await supabase
+        .from("messages")
+        .update({ read: true })
+        .eq("receiver_id", user.id)
+        .eq("sender_id", user_id);
     };
 
     load();
-  }, [user_id, user?.id]);
+  }, [user_id, user?.id, scrollToBottom]);
 
   /* ===============================
        REALTIME
@@ -85,17 +102,21 @@ export default function ChatRoom() {
             (msg.sender_id === user.id && msg.receiver_id === user_id) ||
             (msg.sender_id === user_id && msg.receiver_id === user.id)
           ) {
-            setMessages((prev) => [...prev, msg]);
-            setTimeout(() => {
-              bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, 80);
+            setMessages((prev) => {
+              const next = [...prev, msg];
+              return next;
+            });
+
+            // small delay then scroll (give DOM time to render)
+            setTimeout(() => scrollToBottom("smooth"), 80);
+            setTimeout(() => scrollToBottom("smooth"), 300);
           }
         }
       )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [user_id, user?.id]);
+  }, [user_id, user?.id, scrollToBottom]);
 
   /* ===============================
         GỬI TEXT
@@ -119,7 +140,9 @@ export default function ChatRoom() {
 
     setMessages((prev) => [...prev, data]);
     setText("");
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+
+    // scroll to bottom after adding
+    setTimeout(() => scrollToBottom("smooth"), 20);
   };
 
   /* ===============================
@@ -158,7 +181,10 @@ export default function ChatRoom() {
         .single();
 
       setMessages((prev) => [...prev, data]);
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+
+      // scroll a bit later to allow image render
+      setTimeout(() => scrollToBottom("smooth"), 50);
+      setTimeout(() => scrollToBottom("smooth"), 300);
     } catch (err) {
       alert("Upload thất bại!");
     }
@@ -179,10 +205,11 @@ export default function ChatRoom() {
 
   return (
     <div className="chat-room">
-
       {/* ===== HEADER ===== */}
       <div className="chat-header glass">
-        <Link to="/messages" className="back-btn">←</Link>
+        <Link to="/messages" className="back-btn">
+          ←
+        </Link>
         <img
           src={otherUser?.avatar_url || "/default-avatar.png"}
           className="chat-header-avatar"
@@ -191,15 +218,12 @@ export default function ChatRoom() {
       </div>
 
       {/* ===== MESSAGES ===== */}
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesRef}>
         {messages.map((msg) => {
           const mine = msg.sender_id === user.id;
 
           return (
-            <div
-              className={`chat-row ${mine ? "row-right" : "row-left"}`}
-              key={msg.id}
-            >
+            <div className={`chat-row ${mine ? "row-right" : "row-left"}`} key={msg.id}>
               {!mine && (
                 <img
                   src={otherUser?.avatar_url || "/default-avatar.png"}
@@ -213,11 +237,14 @@ export default function ChatRoom() {
                     src={msg.image_url}
                     className="chat-image-thumb"
                     onClick={() => setPreviewImage(msg.image_url)}
+                    // ensure scroll to bottom again when image loads fully
+                    onLoad={() => {
+                      setTimeout(() => scrollToBottom("smooth"), 20);
+                      setTimeout(() => scrollToBottom("smooth"), 200);
+                    }}
                   />
                 ) : (
-                  <div className={`chat-msg ${mine ? "sent" : "received"}`}>
-                    {msg.content}
-                  </div>
+                  <div className={`chat-msg ${mine ? "sent" : "received"}`}>{msg.content}</div>
                 )}
 
                 <div className="msg-time">{formatTime(msg.created_at)}</div>
@@ -227,7 +254,8 @@ export default function ChatRoom() {
           );
         })}
 
-        <div ref={bottomRef}></div>
+        {/* sentinel */}
+        <div ref={bottomRef} />
       </div>
 
       {/* ===== INPUT ===== */}
@@ -243,12 +271,7 @@ export default function ChatRoom() {
           <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
         </label>
 
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Nhắn tin..."
-          autoComplete="off"
-        />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Nhắn tin..." autoComplete="off" />
 
         <button type="submit" disabled={uploading}>
           {uploading ? "..." : "Gửi"}
@@ -257,14 +280,10 @@ export default function ChatRoom() {
 
       {/* ===== PREVIEW FULL ===== */}
       {previewImage && (
-        <div
-          className="preview-overlay"
-          onClick={() => setPreviewImage(null)}
-        >
+        <div className="preview-overlay" onClick={() => setPreviewImage(null)}>
           <img src={previewImage} className="preview-full" />
         </div>
       )}
-
     </div>
   );
 }

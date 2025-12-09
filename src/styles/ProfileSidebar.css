@@ -108,3 +108,58 @@
 .sidebar-logout:hover {
   opacity: 0.8;
 }
+.friends-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  background: #0f0f0f;
+  color: white;
+  padding: 20px;
+  z-index: 200;
+  overflow-y: auto;
+}
+
+.friends-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 5px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #1a1a1a;
+}
+
+.friend-item:hover {
+  background: #2b2b2b;
+}
+
+.friend-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.friend-username {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.friends-empty {
+  opacity: 0.7;
+  padding: 10px 0;
+}
