@@ -1,3 +1,4 @@
+// src/components/CommentPanel.jsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -94,15 +95,24 @@ export default function CommentPanel({ video, onClose }) {
   const [replyPlaceholder, setReplyPlaceholder] = useState("");
 
   useEffect(() => {
+    console.log("[CommentPanel] mounted for video:", video?.id ?? null);
+    return () => console.log("[CommentPanel] unmounted");
+  }, [video?.id]);
+
+  useEffect(() => {
     if (!video) return;
     load();
   }, [video]);
 
   const load = async () => {
-    const list = await fetchComments(video.id);
-    setFlatComments(list || []);
-    const tree = buildTree(list || []);
-    setCommentsTree(tree);
+    try {
+      const list = await fetchComments(video.id);
+      setFlatComments(list || []);
+      const tree = buildTree(list || []);
+      setCommentsTree(tree);
+    } catch (err) {
+      console.error("[CommentPanel] load error", err);
+    }
   };
 
   const buildTree = (list) => {
@@ -137,14 +147,13 @@ export default function CommentPanel({ video, onClose }) {
     try {
       setPosting(true);
 
-      const newComment = await apiPostComment({
+      await apiPostComment({
         user_id: user.id,
         video_id: video.id,
         content,
         parent_id: parentId || null,
       });
 
-      // 🔔 TẠO THÔNG BÁO COMMENT
       if (video.user_id !== user.id) {
         await supabase.from("notifications").insert([
           {
@@ -190,22 +199,34 @@ export default function CommentPanel({ video, onClose }) {
     await load();
   };
 
+  // safe onClose wrapper
+  const safeOnClose = typeof onClose === "function" ? onClose : () => {
+    console.warn("[CommentPanel] onClose not provided");
+  };
+
+  const handleOverlayClick = (e) => {
+    console.log("[CommentPanel] overlay clicked -> call onClose");
+    safeOnClose();
+  };
+
+  const handleCloseBtn = () => {
+    console.log("[CommentPanel] close button clicked -> call onClose");
+    safeOnClose();
+  };
+
   return (
-    <div className="comment-overlay" onClick={onClose}>
+    <div className="comment-overlay" onClick={handleOverlayClick}>
       <div className="comment-panel" onClick={(e) => e.stopPropagation()}>
         <div className="comment-header">
           <b>Bình luận</b>
-          <button className="close-btn" onClick={onClose}>
-            ✕
-          </button>
+          <button className="close-btn" onClick={handleCloseBtn}>✕</button>
         </div>
 
         <div className="comment-list">
           {commentsTree.length === 0 && (
-            <div className="empty">
-              Chưa có bình luận nào — trở thành người đầu tiên nhé!
-            </div>
+            <div className="empty">Chưa có bình luận nào — trở thành người đầu tiên nhé!</div>
           )}
+
           {commentsTree.map((c) => (
             <CommentItem
               key={c.id}
@@ -218,7 +239,6 @@ export default function CommentPanel({ video, onClose }) {
           ))}
         </div>
 
-        {/* Input row */}
         <div className="comment-input-row">
           <input
             className="comment-input"
@@ -234,6 +254,7 @@ export default function CommentPanel({ video, onClose }) {
               }
             }}
           />
+
           <div style={{ display: "flex", gap: 8 }}>
             {replyingTo && (
               <button

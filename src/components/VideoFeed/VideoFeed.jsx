@@ -1,6 +1,6 @@
 // src/components/VideoFeed/VideoFeed.jsx
 import React, { useRef, useState } from "react";
-import { motion, useAnimation } from "framer-motion";
+import { useAnimation } from "framer-motion";
 import useFeedData from "./useFeedData";
 import useSwipe from "./useSwipe";
 import FeedItem from "./FeedItem";
@@ -30,16 +30,18 @@ export default function VideoFeed() {
     updateList,
   } = useFeedData();
 
+  // COMMENT PANEL CONTROL
   const [showComments, setShowComments] = useState(false);
 
+  const openComments = () => setShowComments(true);
+  const closeComments = () => setShowComments(false);
+
+  // SWIPE & MOTION
   const containerRef = useRef(null);
   const nextRef = useRef(null);
-
-  // Motion controllers
   const yControls = useAnimation();
   const nextControls = useAnimation();
 
-  // Swipe hook
   const { handlers, onDrag, onDragEnd } = useSwipe({
     list,
     index,
@@ -80,7 +82,7 @@ export default function VideoFeed() {
         </div>
       </div>
 
-      {/* MAIN VIDEO VIEWPORT */}
+      {/* MAIN VIEW */}
       <div className="videofeed-viewport">
         {currentVideo ? (
           <FeedItem
@@ -97,12 +99,10 @@ export default function VideoFeed() {
             commentsCount={commentsCount}
             likesCount={likesCount}
             isFollowing={isFollowing}
-            openComments={() => setShowComments(true)}
+            openComments={openComments}
           />
         ) : (
-          <div className="empty-state">
-            Không có nội dung để hiển thị
-          </div>
+          <div className="empty-state">Không có nội dung để hiển thị</div>
         )}
       </div>
 
@@ -110,7 +110,7 @@ export default function VideoFeed() {
       {showComments && currentVideo && (
         <CommentPanel
           video={currentVideo}
-          onClose={() => setShowComments(false)}
+          onClose={closeComments}
         />
       )}
 
@@ -125,7 +125,6 @@ export default function VideoFeed() {
           const pattern = `%${query}%`;
 
           Promise.all([
-            // videos search
             supabase
               .from("videos")
               .select("*, profiles:profiles(id,username,avatar_url)")
@@ -134,7 +133,6 @@ export default function VideoFeed() {
               )
               .order("created_at", { ascending: false }),
 
-            // photos search
             supabase
               .from("photos")
               .select("*, profiles:profiles(id,username,avatar_url)")
@@ -151,8 +149,7 @@ export default function VideoFeed() {
                 let urlVal = p.url;
                 try {
                   if (typeof urlVal === "string" && urlVal.trim().startsWith("[")) {
-                    const arr = JSON.parse(urlVal);
-                    urlVal = Array.isArray(arr) ? arr : urlVal;
+                    urlVal = JSON.parse(urlVal);
                   }
                 } catch {}
                 return { ...p, type: "photo", url: urlVal };
@@ -165,7 +162,7 @@ export default function VideoFeed() {
               updateList(merged);
               setTab("foryou");
             })
-            .catch((err) => console.error(err));
+            .catch(console.error);
         }}
         initial={searchQueryRef.current}
       />

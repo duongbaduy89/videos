@@ -5,7 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import XBottomNav from "./components/XBottomNav";
 import ProfileSidebar from "./components/ProfileSidebar";
 
-import VideoFeed from "./components/VideoFeed";
+import VideoFeed from "./components/VideoFeed/VideoFeed";
 import Login from "./components/Auth/Login";
 import Signup from "./components/Auth/Signup";
 
